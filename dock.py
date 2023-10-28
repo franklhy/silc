@@ -11,14 +11,14 @@ class dock:
         self.sf_name = sf_name
         self.receptor_name = receptor
         self.receptor_map_path = receptor_map_path
-        
+
         self.receptor = AllChem.MolFromPDBFile(os.path.join(self.receptor_map_path, "%s.pdb" % self.receptor_name))
         self.ligand = None
         self.result_pdbqt = {} # result pdbqt of n_ligand
         self.result_file = {} # result file of n_ligand
 
-        self.v = Vina(sf_name=self.sf_name)        
-        
+        self.v = Vina(sf_name=self.sf_name)
+
         ### load affinity precalculated affinity map
         self.v.load_maps(os.path.join(self.receptor_map_path, "%s_%s" % (self.receptor_name, self.sf_name)))
 
@@ -66,9 +66,8 @@ class dock:
                 ligand = AllChem.Mol(mol[i], confId=pose_id)
                 complex = AllChem.CombineMols(complex, ligand)
         complex_block = AllChem.MolToMolBlock(complex)
-        
+
         viewer = py3Dmol.view(width=500, height=500)
-        
         viewer.addModel(complex_block, 'mol')
         viewer.setStyle({'stick': {}})
         viewer.zoomTo()
