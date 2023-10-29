@@ -4,8 +4,10 @@ import meeko
 from vina import Vina
 import py3Dmol
 
-import util
-from dock import dock
+from importlib_resources import files
+
+import silc.util as util
+from silc.dock import dock
 
 ### motif1: diphenylpyreneEO with OH chain end
 ### motif2: diphenylpyreneEO with CC=C chain end
@@ -19,10 +21,8 @@ motifD_smiles = lambda nEO: "C=CC" + "OCC"*nEO + "[N+]Cc6ccc(c2ccc3ccc5c(c1ccc(C
 diphenylpyrene = "c6ccc(c2ccc3ccc5c(c1ccccc1)ccc4ccc2c3c45)cc6"
 core = util.gen_mol_from_smiles(diphenylpyrene)
 
-receptor = AllChem.MolFromPDBFile("input/receptor/GCDOH.pdbqt")
-
-d = dock('ad4')
-d.load_results("GCDOH_2_ligand_ad4.pdbqt", n_ligand=2)
+d = dock(sf_name='ad4', receptor_name='GCDOH')
+d.load_results(files('data.tutorial').joinpath('GCDOH_2_ligand_ad4.pdbqt'), n_ligand=2)
 ligand0, ligand1 = d.ligand_mol(n_ligand=2, pose_id=0)    # parrallel
 #ligand0, ligand1 = d.ligand_mol(n_ligand=2, pose_id=19)    # X-shape
 
@@ -46,6 +46,8 @@ writer.write(motif0)
 writer = AllChem.PDBWriter("motif1.pdb")
 writer.write(motif1)
 
+
+receptor = AllChem.MolFromPDBFile(str(files('data.receptor').joinpath('GCDOH.pdbqt')))
 complex = util.optimize_complex(receptor, [motif0, motif1], [expanded_core0, expanded_core1])
 writer = AllChem.PDBWriter("complex.pdb")
 writer.write(complex)

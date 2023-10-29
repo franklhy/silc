@@ -4,23 +4,44 @@ import meeko
 from vina import Vina
 import py3Dmol
 
-import util
+from importlib_resources import files
+
+from . import util
 
 class dock:
-    def __init__(self, sf_name, receptor='GCDOH', receptor_map_path='input/receptor/'):
+    def __init__(self, sf_name, receptor_name, receptor_pdb_path=None, receptor_map_path=None):
         self.sf_name = sf_name
-        self.receptor_name = receptor
+        self.receptor_name = receptor_name
+        self.receptor_pdb_path = receptor_pdb_path
         self.receptor_map_path = receptor_map_path
-
-        self.receptor = AllChem.MolFromPDBFile(os.path.join(self.receptor_map_path, "%s.pdb" % self.receptor_name))
+        self.use_receptor_database = False
+        self.receptor_pdb = None
+        self.receptor = None
         self.ligand = None
         self.result_pdbqt = {} # result pdbqt of n_ligand
         self.result_file = {} # result file of n_ligand
 
         self.v = Vina(sf_name=self.sf_name)
 
+        # try to find the receptor in the database (i.e. data/receptor)
+        if self._find_receptor(self.receptor_name) and self.receptor_pdb_path is None:
+            self.receptor_pdb = str(files("data.receptor").joinpath("%s.pdb" % self.receptor_name))
+            print("Found receptor %s in database at %s" % (self.receptor_name, self.receptor_pdb))
+            self.use_receptor_database = True
+        elif _find_receptor(self.receptor_name) and self.receptor_pdb_path is not None:
+            self.receptor_pdb = os.path.join(self.receptor_pdb_path, "%s.pdb" % self.receptor_name)
+        else:
+            raise RuntimeError("Cannot find receptor.")
+        self.receptor = AllChem.MolFromPDBFile(self.receptor_pdb)
+
         ### load affinity precalculated affinity map
-        self.v.load_maps(os.path.join(self.receptor_map_path, "%s_%s" % (self.receptor_name, self.sf_name)))
+        if self.use_receptor_database:
+            self.v.load_maps(str(files("data.receptor").joinpath("%s_%s" % (self.receptor_name, self.sf_name))))
+        else:
+            self.v.load_maps(os.path.join(self.receptor_map_path, "%s_%s" % (self.receptor_name, self.sf_name)))
+
+    def _find_receptor(self, receptor_name):
+        return files("data.receptor").joinpath("%s.pdb" % self.receptor_name).is_file()
 
     def prepare_ligand_from_smiles(self, smiles):
         '''
