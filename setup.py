@@ -10,5 +10,5 @@ setup(
         'meeko>=0.5.0',
         'py3Dmol>=2.0.0'
     ],
-    package_data={'': ['data/*']}
+    package_data={'silc': ['data/receptor/*', 'data/tutorial/*']}
 )

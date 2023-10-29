@@ -22,7 +22,7 @@ diphenylpyrene = "c6ccc(c2ccc3ccc5c(c1ccccc1)ccc4ccc2c3c45)cc6"
 core = util.gen_mol_from_smiles(diphenylpyrene)
 
 d = dock(sf_name='ad4', receptor_name='GCDOH')
-d.load_results(files('data.tutorial').joinpath('GCDOH_2_ligand_ad4.pdbqt'), n_ligand=2)
+d.load_results(files('silc.data.tutorial').joinpath('GCDOH_2_ligand_ad4.pdbqt'), n_ligand=2)
 ligand0, ligand1 = d.ligand_mol(n_ligand=2, pose_id=0)    # parrallel
 #ligand0, ligand1 = d.ligand_mol(n_ligand=2, pose_id=19)    # X-shape
 
@@ -47,7 +47,7 @@ writer = AllChem.PDBWriter("motif1.pdb")
 writer.write(motif1)
 
 
-receptor = AllChem.MolFromPDBFile(str(files('data.receptor').joinpath('GCDOH.pdbqt')))
+receptor = AllChem.MolFromPDBFile(str(files('silc.data.receptor').joinpath('GCDOH.pdbqt')))
 complex = util.optimize_complex(receptor, [motif0, motif1], [expanded_core0, expanded_core1])
 writer = AllChem.PDBWriter("complex.pdb")
 writer.write(complex)

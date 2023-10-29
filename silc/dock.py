@@ -23,12 +23,12 @@ class dock:
 
         self.v = Vina(sf_name=self.sf_name)
 
-        # try to find the receptor in the database (i.e. data/receptor)
+        # try to find the receptor in the database (i.e. from data/receptor)
         if self._find_receptor(self.receptor_name) and self.receptor_pdb_path is None:
-            self.receptor_pdb = str(files("data.receptor").joinpath("%s.pdb" % self.receptor_name))
+            self.receptor_pdb = str(files("silc.data.receptor").joinpath("%s.pdb" % self.receptor_name))
             print("Found receptor %s in database at %s" % (self.receptor_name, self.receptor_pdb))
             self.use_receptor_database = True
-        elif _find_receptor(self.receptor_name) and self.receptor_pdb_path is not None:
+        elif self._find_receptor(self.receptor_name) and self.receptor_pdb_path is not None:
             self.receptor_pdb = os.path.join(self.receptor_pdb_path, "%s.pdb" % self.receptor_name)
         else:
             raise RuntimeError("Cannot find receptor.")
@@ -36,12 +36,12 @@ class dock:
 
         ### load affinity precalculated affinity map
         if self.use_receptor_database:
-            self.v.load_maps(str(files("data.receptor").joinpath("%s_%s" % (self.receptor_name, self.sf_name))))
+            self.v.load_maps(str(files("silc.data.receptor").joinpath("%s_%s" % (self.receptor_name, self.sf_name))))
         else:
             self.v.load_maps(os.path.join(self.receptor_map_path, "%s_%s" % (self.receptor_name, self.sf_name)))
 
     def _find_receptor(self, receptor_name):
-        return files("data.receptor").joinpath("%s.pdb" % self.receptor_name).is_file()
+        return files("silc.data.receptor").joinpath("%s.pdb" % self.receptor_name).is_file()
 
     def prepare_ligand_from_smiles(self, smiles):
         '''
