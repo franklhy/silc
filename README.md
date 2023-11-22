@@ -8,7 +8,8 @@ Silc requires a number of python packages. In order to install and run silc smoo
 - RDKit: https://github.com/rdkit/rdkit
 - vina: Python binder of Autodock Vina, see https://autodock-vina.readthedocs.io/en/latest/installation.html#python-bindings
 - Meeko: https://github.com/forlilab/Meeko
-- py3Dmol: https://pypi.org/project/py3Dmol/
+- py3Dmol (optinoal, but it is used in tutorial): https://pypi.org/project/py3Dmol/
+- AmberTool23: https://ambermd.org/GetAmber.php#ambertools
 - openmm: http://docs.openmm.org/
 
 ## Install
@@ -21,4 +22,4 @@ where the optional `-e` flag specifies that we want to install in *editable* mod
 
 ## Tutorial
 
-In the `tutorial` folder, I demonstrate the usage of this package. You can simple run tutorial.ipynb interactively using Jupyter Notebook.
+In the `tutorial` folder, I demonstrate the usage of this package. You can simple run tutorial_*.ipynb in sequence using Jupyter Notebook.
