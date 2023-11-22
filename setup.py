@@ -8,7 +8,8 @@ setup(
         'rdkit',
         'vina>=1.2.5',
         'meeko>=0.5.0',
-        'py3Dmol>=2.0.0'
+        'py3Dmol>=2.0.0',
+        'openmm'
     ],
     package_data={'silc': ['data/receptor/*', 'data/tutorial/*']}
 )

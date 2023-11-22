@@ -1,0 +1,2 @@
+O=C(O)c1cc(c2ccc(COCC*)cc2)cc(c2ccc(COCC*)cc2)c1
+*:O

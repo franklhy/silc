@@ -9,6 +9,7 @@ Silc requires a number of python packages. In order to install and run silc smoo
 - vina: Python binder of Autodock Vina, see https://autodock-vina.readthedocs.io/en/latest/installation.html#python-bindings
 - Meeko: https://github.com/forlilab/Meeko
 - py3Dmol: https://pypi.org/project/py3Dmol/
+- openmm: http://docs.openmm.org/
 
 ## Install
 

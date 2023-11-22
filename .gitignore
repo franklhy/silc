@@ -1,4 +1,5 @@
-tutorial/*.pdb
+tutorial/*
+!tutorial/tutorial*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -40,8 +40,10 @@ class dock:
         else:
             self.v.load_maps(os.path.join(self.receptor_map_path, "%s_%s" % (self.receptor_name, self.sf_name)))
 
+
     def _find_receptor(self, receptor_name):
         return files("silc.data.receptor").joinpath("%s.pdb" % self.receptor_name).is_file()
+
 
     def prepare_ligand_from_smiles(self, smiles):
         '''
@@ -52,10 +54,11 @@ class dock:
         meeko_prep.prepare(ligand)
         self.ligand_pdbqt = meeko_prep.write_pdbqt_string()
 
+
     def run(self, n_ligand=1, n_poses=20, exhaustiveness=32, save_name=None):
         '''
         run docking
-        ''' 
+        '''
         self.v.set_ligand_from_string([self.ligand_pdbqt] * n_ligand)
         self.v.dock(exhaustiveness=exhaustiveness, n_poses=n_poses)
 
@@ -64,6 +67,7 @@ class dock:
         self.v.write_poses("%s.pdbqt" % save_name, n_poses=n_poses, overwrite=True)
         self.result_file[n_ligand] = "%s.pdbqt" % save_name
         self.result_pdbqt[n_ligand] = self.v.poses(n_poses=n_poses)
+
 
     def visualize(self, n_ligand, pose_id):
         '''
@@ -94,6 +98,7 @@ class dock:
         viewer.zoomTo()
         viewer.show()
 
+
     def ligand_mol(self, n_ligand, pose_id, hydrogen=False):
         '''
         Return a list of ligand molecules in the complex, with their conformer determined by pose_id.
@@ -107,6 +112,7 @@ class dock:
                 moli = AllChem.RemoveHs(moli)
             ligand.append(moli)
         return ligand
+
 
     def load_results(self, pdbqt_name, n_ligand):
         '''
