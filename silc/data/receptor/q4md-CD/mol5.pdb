@@ -1,0 +1,13 @@
+REMARK
+REMARK REORIENT 1 5 6 | 6 5 1
+REMARK
+ATOM      1 CX   OMe     1     -1.1662  0.1886  0.0000
+ATOM      2 HX1  OMe     1     -1.2308  0.8233 -0.8834
+ATOM      3 HX2  OMe     1     -2.0044 -0.4954 -0.0000
+ATOM      4 HX3  OMe     1     -1.2308  0.8232  0.8834
+ATOM      5 OS   OMe     1     -0.0000 -0.5706  0.0000
+ATOM      6 CM   OMe     1      1.1662  0.1886  0.0000
+ATOM      7 HM1  OMe     1      1.2308  0.8232 -0.8834
+ATOM      8 HM2  OMe     1      2.0044 -0.4955  0.0000
+ATOM      9 HM3  OMe     1      1.2308  0.8233  0.8834
+END

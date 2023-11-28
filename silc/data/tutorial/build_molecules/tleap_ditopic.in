@@ -1,3 +1,4 @@
+logfile leap_ditopic.log
 source leaprc.gaff2
 loadamberprep COR/molecule.prepi
 loadamberprep TLA_TLB/molecule_head.prepi
@@ -5,6 +6,7 @@ loadamberprep TLA_TLB/molecule_tail.prepi
 loadamberprep BRD/molecule.prepi
 mol = sequence {TLA COR BRD COR TLB}
 savepdb mol ditopic.pdb
+savemol2 mol ditopic_Tripos.mol2 0
 savemol2 mol ditopic.mol2 1
 saveamberparm mol ditopic.prmtop ditopic.rst7
 quit

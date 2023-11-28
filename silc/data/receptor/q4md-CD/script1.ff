@@ -1,0 +1,1234 @@
+# R.E.DD.B. project
+#
+# Authors of the project 
+# C. Cezard & F.-Y. Dupradeau
+#
+# Please, rename each tripos file available in R.E.DD.B.
+#               R.E.DD.B. names                Description
+# 1-MG2.mol2     tripos1.mol2       Fragment MG2 (w/ OH2) from a-OMe-D-Glucoside
+# 1-MG3.mol2     tripos2.mol2       Fragment MG3 (w/ OH3) from a-OMe-D-Glucoside
+# 1-MG6.mol2     tripos3.mol2       Fragment MG6 (w/ OH6) from a-OMe-D-Glucoside
+# 1-MGA.mol2     tripos4.mol2       Fragment MGA (w/ OH3 & OH6) from a-OMe-D-Glucoside
+# 1-MGB.mol2     tripos5.mol2       Fragment MGB (w/ OH2 & OH6) from a-OMe-D-Glucoside
+# 1-MGC.mol2     tripos6.mol2       Fragment MGC (w/ OH2 & OH3) from a-OMe-D-Glucoside
+# 1-MGO.mol2     tripos7.mol2       Fragment MGO (w/ all OHs but OH4) from a-OMe-D-Glucoside
+# 1-MGR.mol2     tripos8.mol2       Fragment MGR (w/o all OHs) from a-OMe-D-Glucoside
+# 2-OAC.mol2     tripos9.mol2       Fragment OAc from Me-OAc
+# 3-OBN.mol2     tripos10.mol2      Fragment OBn from Me-OBn
+# 4-OBZ.mol2     tripos11.mol2      Fragment OBz from Me-OBz
+# 5-OME.mol2     tripos12.mol2      Fragment OMe from Me-OMe
+# 6-SCC.mol2     tripos13.mol2      Fragment SCC from N,N-dimethylsuccinamide 
+# 7-BM3.mol2     tripos14.mol2      Fragment BM3 (w/ OH2 & OH3) from b-N-acetamido-D-Mannoside
+# 7-BM4.mol2     tripos15.mol2      Fragment BM4 (w/ OH2 & OH4) from b-N-acetamido-D-Mannoside
+# 7-BM6.mol2     tripos16.mol2      Fragment BM6 (w/ OH2 & OH6) from b-N-acetamido-D-Mannoside
+# 7-BMA.mol2     tripos17.mol2      Fragment BMA (w/o OH3) from b-N-acetamido-D-Mannoside
+# 7-BMB.mol2     tripos18.mol2      Fragment BMB (w/o OH4) from b-N-acetamido-D-Mannoside
+# 7-BMC.mol2     tripos19.mol2      Fragment BMC (w/o OH6) from b-N-acetamido-D-Mannoside
+# 7-BMO.mol2     tripos20.mol2      Fragment BMO (w all OHs) from b-N-acetamido-D-Mannoside
+# 7-BMR.mol2     tripos21.mol2      Fragment BMR (w/o all OHs but OH2) from b-N-acetamido-D-Mannoside
+# 8-AMO.mol2     tripos22.mol2      Fragment AMO from a-OMe-D-Mannoside
+#
+# Ac = CH3CO // Bn = C6H5CH2 // Bz = C6H5CO // Me = CH3
+
+#logFile leap.log
+
+# load Amber99SB & only what we need...
+addAtomTypes {
+# Amber
+        { "HZ"  "H" "sp3" }
+        { "H"   "H" "sp3" }
+        { "HO"  "H" "sp3" }
+        { "H1"  "H" "sp3" }
+        { "H2"  "H" "sp3" }
+        { "HC"  "H" "sp3" }
+        { "HA"  "H" "sp3" }
+        { "HW"  "H" "sp3" }
+        { "OW"  "O" "sp3" }
+        { "OH"  "O" "sp3" }
+        { "OS"  "O" "sp3" }
+        { "O"   "O" "sp2" }
+        { "O2"  "O" "sp2" }
+        { "S"   "S" "sp3" }
+        { "CT"  "C" "sp3" }
+        { "CZ"  "C" "sp3" }
+        { "C"   "C" "sp2" }
+        { "CA"  "C" "sp2" }
+        { "N"   "N" "sp2" }
+        { "CL" "Cl" "sp3" }
+# Glycam
+        { "CG"  "C" "sp3" }
+}
+
+parm99 = loadamberparams parm99.dat
+FF99SB = loadamberparams frcmod.ff99SB
+CHCL3  = loadamberparams frcmod.chcl3
+
+loadoff all_amino94.lib
+loadoff all_aminoct94.lib
+loadoff all_aminont94.lib
+
+loadoff solvents.lib
+
+# Load our own DMSO-Box generated using:
+# - FF parameters from Fox & Kollman J.Phys.Chem.B 1998,102,8070
+# - Charges from http://upjv.q4md-forcefieldtools.org/REDDB/Projects/W-4/
+#loadoff DMSO-Box.off
+
+# Use Glycam i.e. script5.ff
+glycam04 = loadamberparams script5.ff
+# glycam04 = loadamberparams glycam04.dat
+# glycam06 = loadamberparams glycam06_current.dat
+
+HOH = TP3
+WAT = TP3
+
+# To be loaded after the addAtomTypes command !
+# FRCMOD1 = loadamberparams frcmod.protected-CD
+# FRCMOD2 = loadamberparams frcmod.CHCL3
+# FRCMOD3 = loadamberparams frcmod.DMSO
+# FRCMOD4 = loadamberparams frcmod.spec
+# All in one file: i.e. script3.ff
+Q4MDCD = loadamberparams script3.ff
+#Q4MDCD = loadamberparams frcmod.q4md
+
+alias e edit
+alias q quit
+alias c charge
+alias i impose
+alias seq sequence
+
+verbosity 2
+
+###############################
+# LOAD ALL THE REQUIRED UNITS #
+###############################
+
+# The central fragment - allows polymerisation of per-OR a(1,4)Glc (R = Me, Bn, Ac or Bz)
+# MGR = loadmol2 1-MGR.mol2
+MGR = loadmol2 tripos8.mol2
+set MGR name "MGR"
+set MGR head MGR.1.C4
+set MGR tail MGR.1.O1
+set MGR.1 connect0 MGR.1.C4
+set MGR.1 connect1 MGR.1.O1
+set MGR.1 restype saccharide
+set MGR.1 name "MGR"
+# set FF atom types
+set MGR.1.C1 type CG
+set MGR.1.H1 type H2
+set MGR.1.O1 type OS
+set MGR.1.C2 type CG
+set MGR.1.H2 type H1
+set MGR.1.C3 type CG
+set MGR.1.H3 type H1
+set MGR.1.C4 type CG
+set MGR.1.H4 type H1
+set MGR.1.C5 type CG
+set MGR.1.H5 type H1
+set MGR.1.O5 type OS
+set MGR.1.C6 type CG
+set MGR.1.H61 type H1
+set MGR.1.H62 type H1
+
+# The central fragment - allows polymerisation of per-OH a(1,4)Glc
+# MGO = loadmol2 1-MGO.mol2
+MGO = loadmol2 tripos7.mol2
+set MGO name "MGO"
+set MGO head MGO.1.C4
+set MGO tail MGO.1.O1
+set MGO.1 connect0 MGO.1.C4
+set MGO.1 connect1 MGO.1.O1
+set MGO.1 restype saccharide
+set MGO.1 name "MGO"
+# set FF atom types
+set MGO.1.C1 type CG
+set MGO.1.H1 type H2
+set MGO.1.O1 type OS
+set MGO.1.C2 type CG
+set MGO.1.H2 type H1
+set MGO.1.O2 type OH
+set MGO.1.HO2 type HO
+set MGO.1.C3 type CG
+set MGO.1.H3 type H1
+set MGO.1.O3 type OH
+set MGO.1.HO3 type HO
+set MGO.1.C4 type CG
+set MGO.1.H4 type H1
+set MGO.1.C5 type CG
+set MGO.1.H5 type H1
+set MGO.1.O5 type OS
+set MGO.1.C6 type CG
+set MGO.1.H61 type H1
+set MGO.1.H62 type H1
+set MGO.1.O6 type OH
+set MGO.1.HO6 type HO
+
+# Fragment which allows linking between peptide arm & Glc
+# MGC = loadmol2 1-MGC.mol2
+MGC = loadmol2 tripos6.mol2
+set MGC name "MGC"
+set MGC head MGC.1.C6
+set MGC tail MGC.1.O1
+set MGC.1 connect0 MGC.1.C6
+set MGC.1 connect1 MGC.1.O1
+set MGC.1 restype saccharide
+set MGC.1 name "MGC"
+# set FF atom types
+set MGC.1.C1 type CG
+set MGC.1.H1 type H2
+set MGC.1.O1 type OS
+set MGC.1.C2 type CG
+set MGC.1.H2 type H1
+set MGC.1.O2 type OH
+set MGC.1.HO2 type HO
+set MGC.1.C3 type CG
+set MGC.1.H3 type H1
+set MGC.1.O3 type OH
+set MGC.1.HO3 type HO
+set MGC.1.C4 type CG
+set MGC.1.H4 type H1
+set MGC.1.C5 type CG
+set MGC.1.H5 type H1
+set MGC.1.O5 type OS
+set MGC.1.C6 type CG
+set MGC.1.H61 type H1
+set MGC.1.H62 type H1
+
+# Do you want to load other MG* units ?
+# Simply follow what is done for MGC for instance
+
+# OAc = loadmol2 2-OAC.mol2
+OAc = loadmol2 tripos9.mol2
+set OAc name "OAc"
+set OAc head OAc.1.OS
+# set OAc tail OAc.1.CG        not defined
+set OAc.1 connect0 OAc.1.OS
+# set OAc.1 connect1 OAc.1.CG  not defined
+set OAc.1 restype undefined
+set OAc.1 name "OAc"
+# set FF atom types
+set OAc.1.OS type OS
+set OAc.1.C type C
+set OAc.1.O type O
+set OAc.1.CM type CG
+set OAc.1.HM1 type HC
+set OAc.1.HM2 type HC
+set OAc.1.HM3 type HC
+
+# OBn = loadmol2 3-OBN.mol2
+OBn = loadmol2 tripos10.mol2
+set OBn name "OBn"
+set OBn head OBn.1.OS
+# set OBn tail OBn.1.C1        not defined
+set OBn.1 connect0 OBn.1.OS
+# set OBn.1 connect1 OBn.1.C1  not defined
+set OBn.1 restype undefined
+set OBn.1 name "OBn"
+# set FF atom types
+set OBn.1.OS type OS
+set OBn.1.CM type CG
+set OBn.1.HM1 type H1
+set OBn.1.HM2 type H1
+set OBn.1.C1 type CA
+set OBn.1.C2 type CA
+set OBn.1.H2 type HA
+set OBn.1.C3 type CA
+set OBn.1.H3 type HA
+set OBn.1.C4 type CA
+set OBn.1.H4 type HA
+set OBn.1.C5 type CA
+set OBn.1.H5 type HA
+set OBn.1.C6 type CA
+set OBn.1.H6 type HA
+
+# OBz = loadmol2 4-OBZ.mol2
+OBz = loadmol2 tripos11.mol2
+set OBz name "OBz"
+set OBz name "OBz"
+set OBz head OBz.1.OS
+# set OBz tail OBz.1.C1        not defined
+set OBz.1 connect0 OBz.1.OS
+# set OBz.1 connect1 OBz.1.C1  not defined
+set OBz.1 restype undefined
+set OBz.1 name "OBz"
+# set FF atom types
+set OBz.1.OS type OS
+set OBz.1.C type C
+set OBz.1.O type O
+set OBz.1.C1 type CA
+set OBz.1.C2 type CA
+set OBz.1.H2 type HA
+set OBz.1.C3 type CA
+set OBz.1.H3 type HA
+set OBz.1.C4 type CA
+set OBz.1.H4 type HA
+set OBz.1.C5 type CA
+set OBz.1.H5 type HA
+set OBz.1.C6 type CA
+set OBz.1.H6 type HA
+
+# OMe = loadmol2 5-OME.mol2
+OMe = loadmol2 tripos12.mol2
+set OMe name "OMe"
+set OMe head OMe.1.OS
+# set OMe tail OMe.1.CM        not defined
+set OMe.1 connect0 OMe.1.OS
+# set OMe.1 connect1 OMe.1.CM  not defined
+set OMe.1 restype undefined
+set OMe.1 name "OMe"
+# set FF atom types
+set OMe.1.OS type OS
+set OMe.1.CM type CG
+set OMe.1.HM1 type H1
+set OMe.1.HM2 type H1
+set OMe.1.HM3 type H1
+
+# Succinamide fragment
+# SCC = loadmol2 6-SCC.mol2
+SCC = loadmol2 tripos13.mol2
+set SCC name "SCC"
+set SCC head SCC.1.N1
+set SCC tail SCC.1.C4
+set SCC.1 connect0 SCC.1.N1
+set SCC.1 connect1 SCC.1.C4
+set SCC.1 restype protein 
+set SCC.1 name "SCC"
+# set FF atom types
+set SCC.1.N1  type N
+set SCC.1.H1  type H
+set SCC.1.C1  type C
+set SCC.1.O1  type O
+set SCC.1.C2  type CT
+set SCC.1.H21 type HC
+set SCC.1.H22 type HC
+set SCC.1.C3  type CT
+set SCC.1.H31 type HC
+set SCC.1.H32 type HC
+set SCC.1.C4  type C
+set SCC.1.O4  type O
+
+# Fragment Man-b-NH
+# BM3 = loadmol2 7-BM3.mol2
+BM3 = loadmol2 tripos14.mol2
+set BM3 name "BM3"
+set BM3 head BM3.1.C4
+set BM3 tail BM3.1.NH1
+set BM3.1 connect0 BM3.1.C4
+set BM3.1 connect1 BM3.1.NH1
+set BM3.1 restype saccharide
+set BM3.1 name "BM3"
+# set FF atom types
+set BM3.1.C1 type CG
+set BM3.1.H1 type H2
+set BM3.1.NH1 type N
+set BM3.1.HN1 type H
+set BM3.1.C2 type CG
+set BM3.1.H2 type H1
+set BM3.1.O2 type OH
+set BM3.1.HO2 type HO
+set BM3.1.C3 type CG
+set BM3.1.H3 type H1
+set BM3.1.O3 type OH
+set BM3.1.HO3 type HO
+set BM3.1.C4 type CG
+set BM3.1.H4 type H1
+set BM3.1.C5 type CG
+set BM3.1.H5 type H1
+set BM3.1.O5 type OS
+set BM3.1.C6 type CG
+set BM3.1.H61 type H1
+set BM3.1.H62 type H1
+
+# Fragment Man-b-NH
+# BM4 = loadmol2 7-BM4.mol2
+BM4 = loadmol2 tripos15.mol2
+set BM4 name "BM4"
+set BM4 head BM4.1.C3
+set BM4 tail BM4.1.NH1
+set BM4.1 connect0 BM4.1.C3
+set BM4.1 connect1 BM4.1.NH1
+set BM4.1 restype saccharide
+set BM4.1 name "BM4"
+# set FF atom types
+set BM4.1.C1 type CG
+set BM4.1.H1 type H2
+set BM4.1.NH1 type N
+set BM4.1.HN1 type H
+set BM4.1.C2 type CG
+set BM4.1.H2 type H1
+set BM4.1.O2 type OH
+set BM4.1.HO2 type HO
+set BM4.1.C3 type CG
+set BM4.1.H3 type H1
+set BM4.1.C4 type CG
+set BM4.1.H4 type H1
+set BM4.1.O4 type OH
+set BM4.1.HO4 type HO
+set BM4.1.C5 type CG
+set BM4.1.H5 type H1
+set BM4.1.O5 type OS
+set BM4.1.C6 type CG
+set BM4.1.H61 type H1
+set BM4.1.H62 type H1
+
+# Do you want to load other BM* units ?
+# Simply follow what is done for BM4 for instance
+
+# Fragment Man-a terminal
+# AMO = loadmol2 8-AMO.mol2
+AMO = loadmol2 tripos22.mol2
+set AMO name "AMO"
+set AMO head AMO.1.C4
+set AMO tail AMO.1.O1
+set AMO.1 connect0 AMO.1.C4
+set AMO.1 connect1 AMO.1.O1
+set AMO.1 restype saccharide
+set AMO.1 name "AMO"
+# set FF atom types
+set AMO.1.C1 type CG
+set AMO.1.H1 type H2
+set AMO.1.O1 type OS
+set AMO.1.C2 type CG
+set AMO.1.H2 type H1
+set AMO.1.O2 type OH
+set AMO.1.HO2 type HO
+set AMO.1.C3 type CG
+set AMO.1.H3 type H1
+set AMO.1.O3 type OH
+set AMO.1.HO3 type HO
+set AMO.1.C4 type CG
+set AMO.1.H4 type H1
+set AMO.1.O4 type OH
+set AMO.1.HO4 type HO
+set AMO.1.C5 type CG
+set AMO.1.H5 type H1
+set AMO.1.O5 type OS
+set AMO.1.C6 type CG
+set AMO.1.H61 type H1
+set AMO.1.H62 type H1
+set AMO.1.O6 type OH
+set AMO.1.HO6 type HO
+
+###############################
+#       CREATE PER-OH CDs     #
+###############################
+
+# per-OH alpha-cyclodextrin
+ACDOH = seq {MGO MGO MGO MGO MGO MGO}
+set ACDOH head ACDOH.1.C4
+set ACDOH tail ACDOH.6.O1
+i ACDOH {1 2 3 4 5 6} {{O5 C1 O1 C4 90.0}{C1 O1 C4 C5 -95.00}}
+bond ACDOH.1.C4 ACDOH.6.O1
+
+# per-OH beta-cyclodextrin
+BCDOH = seq {MGO MGO MGO MGO MGO MGO MGO}
+set BCDOH head BCDOH.1.C4
+set BCDOH tail BCDOH.7.O1
+i BCDOH {1 2 3 4 5 6 7} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+bond BCDOH.1.C4 BCDOH.7.O1
+
+# per-OH gamma-cyclodextrin
+GCDOH = seq {MGO MGO MGO MGO MGO MGO MGO MGO}
+set GCDOH head GCDOH.1.C4
+set GCDOH tail GCDOH.8.O1
+i GCDOH {1 2 3 4 5 6 7 8} {{O5 C1 O1 C4 109.0}{C1 O1 C4 C5 -111.00}}
+bond GCDOH.1.C4 GCDOH.8.O1
+
+###############################
+#    CREATE PROTECTED CDs     #
+###############################
+
+# per-OAc alpha-cyclodextrin
+AAC = seq {MGR MGR MGR MGR MGR MGR}
+BAC = seq {MGR MGR MGR MGR MGR MGR MGR}
+GAC = seq {MGR MGR MGR MGR MGR MGR MGR MGR}
+set AAC tail AAC.1.C6
+set BAC tail BAC.1.C6
+set GAC tail GAC.1.C6
+AAC1 = seq {AAC OAc}
+BAC1 = seq {BAC OAc}
+GAC1 = seq {GAC OAc}
+set AAC1 tail AAC1.1.C3
+set BAC1 tail BAC1.1.C3
+set GAC1 tail GAC1.1.C3
+AAC2 = seq {AAC1 OAc}
+BAC2 = seq {BAC1 OAc}
+GAC2 = seq {GAC1 OAc}
+set AAC2 tail AAC2.1.C2
+set BAC2 tail BAC2.1.C2
+set GAC2 tail GAC2.1.C2
+AAC3 = seq {AAC2 OAc}
+BAC3 = seq {BAC2 OAc}
+GAC3 = seq {GAC2 OAc}
+set AAC3 tail AAC3.2.C6
+set BAC3 tail BAC3.2.C6
+set GAC3 tail GAC3.2.C6
+AAC4 = seq {AAC3 OAc}
+BAC4 = seq {BAC3 OAc}
+GAC4 = seq {GAC3 OAc}
+set AAC4 tail AAC4.2.C3
+set BAC4 tail BAC4.2.C3
+set GAC4 tail GAC4.2.C3
+AAC5 = seq {AAC4 OAc}
+BAC5 = seq {BAC4 OAc}
+GAC5 = seq {GAC4 OAc}
+set AAC5 tail AAC5.2.C2
+set BAC5 tail BAC5.2.C2
+set GAC5 tail GAC5.2.C2
+AAC6 = seq {AAC5 OAc}
+BAC6 = seq {BAC5 OAc}
+GAC6 = seq {GAC5 OAc}
+set AAC6 tail AAC6.3.C6
+set BAC6 tail BAC6.3.C6
+set GAC6 tail GAC6.3.C6
+AAC7 = seq {AAC6 OAc}
+BAC7 = seq {BAC6 OAc}
+GAC7 = seq {GAC6 OAc}
+set AAC7 tail AAC7.3.C3
+set BAC7 tail BAC7.3.C3
+set GAC7 tail GAC7.3.C3
+AAC8 = seq {AAC7 OAc}
+BAC8 = seq {BAC7 OAc}
+GAC8 = seq {GAC7 OAc}
+set AAC8 tail AAC8.3.C2
+set BAC8 tail BAC8.3.C2
+set GAC8 tail GAC8.3.C2
+AAC9 = seq {AAC8 OAc}
+BAC9 = seq {BAC8 OAc}
+GAC9 = seq {GAC8 OAc}
+set AAC9 tail AAC9.4.C6
+set BAC9 tail BAC9.4.C6
+set GAC9 tail GAC9.4.C6
+AAC10 = seq {AAC9 OAc}
+BAC10 = seq {BAC9 OAc}
+GAC10 = seq {GAC9 OAc}
+set AAC10 tail AAC10.4.C3
+set BAC10 tail BAC10.4.C3
+set GAC10 tail GAC10.4.C3
+AAC11 = seq {AAC10 OAc}
+BAC11 = seq {BAC10 OAc}
+GAC11 = seq {GAC10 OAc}
+set AAC11 tail AAC11.4.C2
+set BAC11 tail BAC11.4.C2
+set GAC11 tail GAC11.4.C2
+AAC12 = seq {AAC11 OAc}
+BAC12 = seq {BAC11 OAc}
+GAC12 = seq {GAC11 OAc}
+set AAC12 tail AAC12.5.C6
+set BAC12 tail BAC12.5.C6
+set GAC12 tail GAC12.5.C6
+AAC13 = seq {AAC12 OAc}
+BAC13 = seq {BAC12 OAc}
+GAC13 = seq {GAC12 OAc}
+set AAC13 tail AAC13.5.C3
+set BAC13 tail BAC13.5.C3
+set GAC13 tail GAC13.5.C3
+AAC14 = seq {AAC13 OAc}
+BAC14 = seq {BAC13 OAc}
+GAC14 = seq {GAC13 OAc}
+set AAC14 tail AAC14.5.C2
+set BAC14 tail BAC14.5.C2
+set GAC14 tail GAC14.5.C2
+AAC15 = seq {AAC14 OAc}
+BAC15 = seq {BAC14 OAc}
+GAC15 = seq {GAC14 OAc}
+set AAC15 tail AAC15.6.C6
+set BAC15 tail BAC15.6.C6
+set GAC15 tail GAC15.6.C6
+AAC16 = seq {AAC15 OAc}
+BAC16 = seq {BAC15 OAc}
+GAC16 = seq {GAC15 OAc}
+set AAC16 tail AAC16.6.C3
+set BAC16 tail BAC16.6.C3
+set GAC16 tail GAC16.6.C3
+AAC17 = seq {AAC16 OAc}
+BAC17 = seq {BAC16 OAc}
+GAC17 = seq {GAC16 OAc}
+set AAC17 tail AAC17.6.C2
+set BAC17 tail BAC17.6.C2
+set GAC17 tail GAC17.6.C2
+ACDOAC = seq {AAC17 OAc}   # End
+BAC18 = seq {BAC17 OAc}
+GAC18 = seq {GAC17 OAc}
+set BAC18 tail BAC18.7.C6
+set GAC18 tail GAC18.7.C6
+BAC19 = seq {BAC18 OAc}
+GAC19 = seq {GAC18 OAc}
+set BAC19 tail BAC19.7.C3
+set GAC19 tail GAC19.7.C3
+BAC20 = seq {BAC19 OAc}
+GAC20 = seq {GAC19 OAc}
+set BAC20 tail BAC20.7.C2
+set GAC20 tail GAC20.7.C2
+BCDOAC = seq {BAC20 OAc}   # End
+GAC21 = seq {GAC20 OAc}
+set GAC21 tail GAC21.8.C6
+GAC22 = seq {GAC21 OAc}
+set GAC22 tail GAC22.8.C3
+GAC23 = seq {GAC22 OAc}
+set GAC23 tail GAC23.8.C2
+GCDOAC = seq {GAC23 OAc}   # End
+set ACDOAC head ACDOAC.1.C4
+set ACDOAC tail ACDOAC.6.O1
+i ACDOAC {1 2 3 4 5 6} {{O5 C1 O1 C4 90.0}{C1 O1 C4 C5 -95.00}}
+bond ACDOAC.1.C4 ACDOAC.6.O1
+set BCDOAC head BCDOAC.1.C4
+set BCDOAC tail BCDOAC.7.O1
+i BCDOAC {1 2 3 4 5 6 7} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+bond BCDOAC.1.C4 BCDOAC.7.O1
+set GCDOAC head GCDOAC.1.C4
+set GCDOAC tail GCDOAC.8.O1
+i GCDOAC {1 2 3 4 5 6 7 8} {{O5 C1 O1 C4 109.0}{C1 O1 C4 C5 -111.00}}
+bond GCDOAC.1.C4 GCDOAC.8.O1
+
+# per-OBn alpha-cyclodextrin
+ABN = seq {MGR MGR MGR MGR MGR MGR}
+BBN = seq {MGR MGR MGR MGR MGR MGR MGR}
+GBN = seq {MGR MGR MGR MGR MGR MGR MGR MGR}
+set ABN tail ABN.1.C6
+set BBN tail BBN.1.C6
+set GBN tail GBN.1.C6
+ABN1 = seq {ABN OBn}
+BBN1 = seq {BBN OBn}
+GBN1 = seq {GBN OBn}
+set ABN1 tail ABN1.1.C3
+set BBN1 tail BBN1.1.C3
+set GBN1 tail GBN1.1.C3
+ABN2 = seq {ABN1 OBn}
+BBN2 = seq {BBN1 OBn}
+GBN2 = seq {GBN1 OBn}
+set ABN2 tail ABN2.1.C2
+set BBN2 tail BBN2.1.C2
+set GBN2 tail GBN2.1.C2
+ABN3 = seq {ABN2 OBn}
+BBN3 = seq {BBN2 OBn}
+GBN3 = seq {GBN2 OBn}
+set ABN3 tail ABN3.2.C6
+set BBN3 tail BBN3.2.C6
+set GBN3 tail GBN3.2.C6
+ABN4 = seq {ABN3 OBn}
+BBN4 = seq {BBN3 OBn}
+GBN4 = seq {GBN3 OBn}
+set ABN4 tail ABN4.2.C3
+set BBN4 tail BBN4.2.C3
+set GBN4 tail GBN4.2.C3
+ABN5 = seq {ABN4 OBn}
+BBN5 = seq {BBN4 OBn}
+GBN5 = seq {GBN4 OBn}
+set ABN5 tail ABN5.2.C2
+set BBN5 tail BBN5.2.C2
+set GBN5 tail GBN5.2.C2
+ABN6 = seq {ABN5 OBn}
+BBN6 = seq {BBN5 OBn}
+GBN6 = seq {GBN5 OBn}
+set ABN6 tail ABN6.3.C6
+set BBN6 tail BBN6.3.C6
+set GBN6 tail GBN6.3.C6
+ABN7 = seq {ABN6 OBn}
+BBN7 = seq {BBN6 OBn}
+GBN7 = seq {GBN6 OBn}
+set ABN7 tail ABN7.3.C3
+set BBN7 tail BBN7.3.C3
+set GBN7 tail GBN7.3.C3
+ABN8 = seq {ABN7 OBn}
+BBN8 = seq {BBN7 OBn}
+GBN8 = seq {GBN7 OBn}
+set ABN8 tail ABN8.3.C2
+set BBN8 tail BBN8.3.C2
+set GBN8 tail GBN8.3.C2
+ABN9 = seq {ABN8 OBn}
+BBN9 = seq {BBN8 OBn}
+GBN9 = seq {GBN8 OBn}
+set ABN9 tail ABN9.4.C6
+set BBN9 tail BBN9.4.C6
+set GBN9 tail GBN9.4.C6
+ABN10 = seq {ABN9 OBn}
+BBN10 = seq {BBN9 OBn}
+GBN10 = seq {GBN9 OBn}
+set ABN10 tail ABN10.4.C3
+set BBN10 tail BBN10.4.C3
+set GBN10 tail GBN10.4.C3
+ABN11 = seq {ABN10 OBn}
+BBN11 = seq {BBN10 OBn}
+GBN11 = seq {GBN10 OBn}
+set ABN11 tail ABN11.4.C2
+set BBN11 tail BBN11.4.C2
+set GBN11 tail GBN11.4.C2
+ABN12 = seq {ABN11 OBn}
+BBN12 = seq {BBN11 OBn}
+GBN12 = seq {GBN11 OBn}
+set ABN12 tail ABN12.5.C6
+set BBN12 tail BBN12.5.C6
+set GBN12 tail GBN12.5.C6
+ABN13 = seq {ABN12 OBn}
+BBN13 = seq {BBN12 OBn}
+GBN13 = seq {GBN12 OBn}
+set ABN13 tail ABN13.5.C3
+set BBN13 tail BBN13.5.C3
+set GBN13 tail GBN13.5.C3
+ABN14 = seq {ABN13 OBn}
+BBN14 = seq {BBN13 OBn}
+GBN14 = seq {GBN13 OBn}
+set ABN14 tail ABN14.5.C2
+set BBN14 tail BBN14.5.C2
+set GBN14 tail GBN14.5.C2
+ABN15 = seq {ABN14 OBn}
+BBN15 = seq {BBN14 OBn}
+GBN15 = seq {GBN14 OBn}
+set ABN15 tail ABN15.6.C6
+set BBN15 tail BBN15.6.C6
+set GBN15 tail GBN15.6.C6
+ABN16 = seq {ABN15 OBn}
+BBN16 = seq {BBN15 OBn}
+GBN16 = seq {GBN15 OBn}
+set ABN16 tail ABN16.6.C3
+set BBN16 tail BBN16.6.C3
+set GBN16 tail GBN16.6.C3
+ABN17 = seq {ABN16 OBn}
+BBN17 = seq {BBN16 OBn}
+GBN17 = seq {GBN16 OBn}
+set ABN17 tail ABN17.6.C2
+set BBN17 tail BBN17.6.C2
+set GBN17 tail GBN17.6.C2
+ACDOBN = seq {ABN17 OBn}   # End
+BBN18 = seq {BBN17 OBn}
+GBN18 = seq {GBN17 OBn}
+set BBN18 tail BBN18.7.C6
+set GBN18 tail GBN18.7.C6
+BBN19 = seq {BBN18 OBn}
+GBN19 = seq {GBN18 OBn}
+set BBN19 tail BBN19.7.C3
+set GBN19 tail GBN19.7.C3
+BBN20 = seq {BBN19 OBn}
+GBN20 = seq {GBN19 OBn}
+set BBN20 tail BBN20.7.C2
+set GBN20 tail GBN20.7.C2
+BCDOBN = seq {BBN20 OBn}   # End
+GBN21 = seq {GBN20 OBn}
+set GBN21 tail GBN21.8.C6
+GBN22 = seq {GBN21 OBn}
+set GBN22 tail GBN22.8.C3
+GBN23 = seq {GBN22 OBn}
+set GBN23 tail GBN23.8.C2
+GCDOBN = seq {GBN23 OBn}   # End
+set ACDOBN head ACDOBN.1.C4
+set ACDOBN tail ACDOBN.6.O1
+i ACDOBN {1 2 3 4 5 6} {{O5 C1 O1 C4 90.0}{C1 O1 C4 C5 -95.00}}
+bond ACDOBN.1.C4 ACDOBN.6.O1
+set BCDOBN head BCDOBN.1.C4
+set BCDOBN tail BCDOBN.7.O1
+i BCDOBN {1 2 3 4 5 6 7} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+bond BCDOBN.1.C4 BCDOBN.7.O1
+set GCDOBN head GCDOBN.1.C4
+set GCDOBN tail GCDOBN.8.O1
+i GCDOBN {1 2 3 4 5 6 7 8} {{O5 C1 O1 C4 109.0}{C1 O1 C4 C5 -111.00}}
+bond GCDOBN.1.C4 GCDOBN.8.O1
+
+# per-OBz alpha-cyclodextrin
+ABZ = seq {MGR MGR MGR MGR MGR MGR}
+BBZ = seq {MGR MGR MGR MGR MGR MGR MGR}
+GBZ = seq {MGR MGR MGR MGR MGR MGR MGR MGR}
+set ABZ tail ABZ.1.C6
+set BBZ tail BBZ.1.C6
+set GBZ tail GBZ.1.C6
+ABZ1 = seq {ABZ OBz}
+BBZ1 = seq {BBZ OBz}
+GBZ1 = seq {GBZ OBz}
+set ABZ1 tail ABZ1.1.C3
+set BBZ1 tail BBZ1.1.C3
+set GBZ1 tail GBZ1.1.C3
+ABZ2 = seq {ABZ1 OBz}
+BBZ2 = seq {BBZ1 OBz}
+GBZ2 = seq {GBZ1 OBz}
+set ABZ2 tail ABZ2.1.C2
+set BBZ2 tail BBZ2.1.C2
+set GBZ2 tail GBZ2.1.C2
+ABZ3 = seq {ABZ2 OBz}
+BBZ3 = seq {BBZ2 OBz}
+GBZ3 = seq {GBZ2 OBz}
+set ABZ3 tail ABZ3.2.C6
+set BBZ3 tail BBZ3.2.C6
+set GBZ3 tail GBZ3.2.C6
+ABZ4 = seq {ABZ3 OBz}
+BBZ4 = seq {BBZ3 OBz}
+GBZ4 = seq {GBZ3 OBz}
+set ABZ4 tail ABZ4.2.C3
+set BBZ4 tail BBZ4.2.C3
+set GBZ4 tail GBZ4.2.C3
+ABZ5 = seq {ABZ4 OBz}
+BBZ5 = seq {BBZ4 OBz}
+GBZ5 = seq {GBZ4 OBz}
+set ABZ5 tail ABZ5.2.C2
+set BBZ5 tail BBZ5.2.C2
+set GBZ5 tail GBZ5.2.C2
+ABZ6 = seq {ABZ5 OBz}
+BBZ6 = seq {BBZ5 OBz}
+GBZ6 = seq {GBZ5 OBz}
+set ABZ6 tail ABZ6.3.C6
+set BBZ6 tail BBZ6.3.C6
+set GBZ6 tail GBZ6.3.C6
+ABZ7 = seq {ABZ6 OBz}
+BBZ7 = seq {BBZ6 OBz}
+GBZ7 = seq {GBZ6 OBz}
+set ABZ7 tail ABZ7.3.C3
+set BBZ7 tail BBZ7.3.C3
+set GBZ7 tail GBZ7.3.C3
+ABZ8 = seq {ABZ7 OBz}
+BBZ8 = seq {BBZ7 OBz}
+GBZ8 = seq {GBZ7 OBz}
+set ABZ8 tail ABZ8.3.C2
+set BBZ8 tail BBZ8.3.C2
+set GBZ8 tail GBZ8.3.C2
+ABZ9 = seq {ABZ8 OBz}
+BBZ9 = seq {BBZ8 OBz}
+GBZ9 = seq {GBZ8 OBz}
+set ABZ9 tail ABZ9.4.C6
+set BBZ9 tail BBZ9.4.C6
+set GBZ9 tail GBZ9.4.C6
+ABZ10 = seq {ABZ9 OBz}
+BBZ10 = seq {BBZ9 OBz}
+GBZ10 = seq {GBZ9 OBz}
+set ABZ10 tail ABZ10.4.C3
+set BBZ10 tail BBZ10.4.C3
+set GBZ10 tail GBZ10.4.C3
+ABZ11 = seq {ABZ10 OBz}
+BBZ11 = seq {BBZ10 OBz}
+GBZ11 = seq {GBZ10 OBz}
+set ABZ11 tail ABZ11.4.C2
+set BBZ11 tail BBZ11.4.C2
+set GBZ11 tail GBZ11.4.C2
+ABZ12 = seq {ABZ11 OBz}
+BBZ12 = seq {BBZ11 OBz}
+GBZ12 = seq {GBZ11 OBz}
+set ABZ12 tail ABZ12.5.C6
+set BBZ12 tail BBZ12.5.C6
+set GBZ12 tail GBZ12.5.C6
+ABZ13 = seq {ABZ12 OBz}
+BBZ13 = seq {BBZ12 OBz}
+GBZ13 = seq {GBZ12 OBz}
+set ABZ13 tail ABZ13.5.C3
+set BBZ13 tail BBZ13.5.C3
+set GBZ13 tail GBZ13.5.C3
+ABZ14 = seq {ABZ13 OBz}
+BBZ14 = seq {BBZ13 OBz}
+GBZ14 = seq {GBZ13 OBz}
+set ABZ14 tail ABZ14.5.C2
+set BBZ14 tail BBZ14.5.C2
+set GBZ14 tail GBZ14.5.C2
+ABZ15 = seq {ABZ14 OBz}
+BBZ15 = seq {BBZ14 OBz}
+GBZ15 = seq {GBZ14 OBz}
+set ABZ15 tail ABZ15.6.C6
+set BBZ15 tail BBZ15.6.C6
+set GBZ15 tail GBZ15.6.C6
+ABZ16 = seq {ABZ15 OBz}
+BBZ16 = seq {BBZ15 OBz}
+GBZ16 = seq {GBZ15 OBz}
+set ABZ16 tail ABZ16.6.C3
+set BBZ16 tail BBZ16.6.C3
+set GBZ16 tail GBZ16.6.C3
+ABZ17 = seq {ABZ16 OBz}
+BBZ17 = seq {BBZ16 OBz}
+GBZ17 = seq {GBZ16 OBz}
+set ABZ17 tail ABZ17.6.C2
+set BBZ17 tail BBZ17.6.C2
+set GBZ17 tail GBZ17.6.C2
+ACDOBZ = seq {ABZ17 OBz}   # End
+BBZ18 = seq {BBZ17 OBz}
+GBZ18 = seq {GBZ17 OBz}
+set BBZ18 tail BBZ18.7.C6
+set GBZ18 tail GBZ18.7.C6
+BBZ19 = seq {BBZ18 OBz}
+GBZ19 = seq {GBZ18 OBz}
+set BBZ19 tail BBZ19.7.C3
+set GBZ19 tail GBZ19.7.C3
+BBZ20 = seq {BBZ19 OBz}
+GBZ20 = seq {GBZ19 OBz}
+set BBZ20 tail BBZ20.7.C2
+set GBZ20 tail GBZ20.7.C2
+BCDOBZ = seq {BBZ20 OBz}   # End
+GBZ21 = seq {GBZ20 OBz}
+set GBZ21 tail GBZ21.8.C6
+GBZ22 = seq {GBZ21 OBz}
+set GBZ22 tail GBZ22.8.C3
+GBZ23 = seq {GBZ22 OBz}
+set GBZ23 tail GBZ23.8.C2
+GCDOBZ = seq {GBZ23 OBz}   # End
+set ACDOBZ head ACDOBZ.1.C4
+set ACDOBZ tail ACDOBZ.6.O1
+i ACDOBZ {1 2 3 4 5 6} {{O5 C1 O1 C4 90.0}{C1 O1 C4 C5 -95.00}}
+bond ACDOBZ.1.C4 ACDOBZ.6.O1
+set BCDOBZ head BCDOBZ.1.C4
+set BCDOBZ tail BCDOBZ.7.O1
+i BCDOBZ {1 2 3 4 5 6 7} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+bond BCDOBZ.1.C4 BCDOBZ.7.O1
+set GCDOBZ head GCDOBZ.1.C4
+set GCDOBZ tail GCDOBZ.8.O1
+i GCDOBZ {1 2 3 4 5 6 7 8} {{O5 C1 O1 C4 109.0}{C1 O1 C4 C5 -111.00}}
+bond GCDOBZ.1.C4 GCDOBZ.8.O1
+
+# per-OMe alpha-cyclodextrin
+AME = seq {MGR MGR MGR MGR MGR MGR}
+BME = seq {MGR MGR MGR MGR MGR MGR MGR}
+GME = seq {MGR MGR MGR MGR MGR MGR MGR MGR}
+set AME tail AME.1.C6
+set BME tail BME.1.C6
+set GME tail GME.1.C6
+AME1 = seq {AME OMe}
+BME1 = seq {BME OMe}
+GME1 = seq {GME OMe}
+set AME1 tail AME1.1.C3
+set BME1 tail BME1.1.C3
+set GME1 tail GME1.1.C3
+AME2 = seq {AME1 OMe}
+BME2 = seq {BME1 OMe}
+GME2 = seq {GME1 OMe}
+set AME2 tail AME2.1.C2
+set BME2 tail BME2.1.C2
+set GME2 tail GME2.1.C2
+AME3 = seq {AME2 OMe}
+BME3 = seq {BME2 OMe}
+GME3 = seq {GME2 OMe}
+set AME3 tail AME3.2.C6
+set BME3 tail BME3.2.C6
+set GME3 tail GME3.2.C6
+AME4 = seq {AME3 OMe}
+BME4 = seq {BME3 OMe}
+GME4 = seq {GME3 OMe}
+set AME4 tail AME4.2.C3
+set BME4 tail BME4.2.C3
+set GME4 tail GME4.2.C3
+AME5 = seq {AME4 OMe}
+BME5 = seq {BME4 OMe}
+GME5 = seq {GME4 OMe}
+set AME5 tail AME5.2.C2
+set BME5 tail BME5.2.C2
+set GME5 tail GME5.2.C2
+AME6 = seq {AME5 OMe}
+BME6 = seq {BME5 OMe}
+GME6 = seq {GME5 OMe}
+set AME6 tail AME6.3.C6
+set BME6 tail BME6.3.C6
+set GME6 tail GME6.3.C6
+AME7 = seq {AME6 OMe}
+BME7 = seq {BME6 OMe}
+GME7 = seq {GME6 OMe}
+set AME7 tail AME7.3.C3
+set BME7 tail BME7.3.C3
+set GME7 tail GME7.3.C3
+AME8 = seq {AME7 OMe}
+BME8 = seq {BME7 OMe}
+GME8 = seq {GME7 OMe}
+set AME8 tail AME8.3.C2
+set BME8 tail BME8.3.C2
+set GME8 tail GME8.3.C2
+AME9 = seq {AME8 OMe}
+BME9 = seq {BME8 OMe}
+GME9 = seq {GME8 OMe}
+set AME9 tail AME9.4.C6
+set BME9 tail BME9.4.C6
+set GME9 tail GME9.4.C6
+AME10 = seq {AME9 OMe}
+BME10 = seq {BME9 OMe}
+GME10 = seq {GME9 OMe}
+set AME10 tail AME10.4.C3
+set BME10 tail BME10.4.C3
+set GME10 tail GME10.4.C3
+AME11 = seq {AME10 OMe}
+BME11 = seq {BME10 OMe}
+GME11 = seq {GME10 OMe}
+set AME11 tail AME11.4.C2
+set BME11 tail BME11.4.C2
+set GME11 tail GME11.4.C2
+AME12 = seq {AME11 OMe}
+BME12 = seq {BME11 OMe}
+GME12 = seq {GME11 OMe}
+set AME12 tail AME12.5.C6
+set BME12 tail BME12.5.C6
+set GME12 tail GME12.5.C6
+AME13 = seq {AME12 OMe}
+BME13 = seq {BME12 OMe}
+GME13 = seq {GME12 OMe}
+set AME13 tail AME13.5.C3
+set BME13 tail BME13.5.C3
+set GME13 tail GME13.5.C3
+AME14 = seq {AME13 OMe}
+BME14 = seq {BME13 OMe}
+GME14 = seq {GME13 OMe}
+set AME14 tail AME14.5.C2
+set BME14 tail BME14.5.C2
+set GME14 tail GME14.5.C2
+AME15 = seq {AME14 OMe}
+BME15 = seq {BME14 OMe}
+GME15 = seq {GME14 OMe}
+set AME15 tail AME15.6.C6
+set BME15 tail BME15.6.C6
+set GME15 tail GME15.6.C6
+AME16 = seq {AME15 OMe}
+BME16 = seq {BME15 OMe}
+GME16 = seq {GME15 OMe}
+set AME16 tail AME16.6.C3
+set BME16 tail BME16.6.C3
+set GME16 tail GME16.6.C3
+AME17 = seq {AME16 OMe}
+BME17 = seq {BME16 OMe}
+GME17 = seq {GME16 OMe}
+set AME17 tail AME17.6.C2
+set BME17 tail BME17.6.C2
+set GME17 tail GME17.6.C2
+ACDOME = seq {AME17 OMe}   # End
+BME18 = seq {BME17 OMe}
+GME18 = seq {GME17 OMe}
+set BME18 tail BME18.7.C6
+set GME18 tail GME18.7.C6
+BME19 = seq {BME18 OMe}
+GME19 = seq {GME18 OMe}
+set BME19 tail BME19.7.C3
+set GME19 tail GME19.7.C3
+BME20 = seq {BME19 OMe}
+GME20 = seq {GME19 OMe}
+set BME20 tail BME20.7.C2
+set GME20 tail GME20.7.C2
+BCDOME = seq {BME20 OMe}   # End
+GME21 = seq {GME20 OMe}
+set GME21 tail GME21.8.C6
+GME22 = seq {GME21 OMe}
+set GME22 tail GME22.8.C3
+GME23 = seq {GME22 OMe}
+set GME23 tail GME23.8.C2
+GCDOME = seq {GME23 OMe}   # End
+set ACDOME head ACDOME.1.C4
+set ACDOME tail ACDOME.6.O1
+i ACDOME {1 2 3 4 5 6} {{O5 C1 O1 C4 90.0}{C1 O1 C4 C5 -95.00}}
+bond ACDOME.1.C4 ACDOME.6.O1
+set BCDOME head BCDOME.1.C4
+set BCDOME tail BCDOME.7.O1
+i BCDOME {1 2 3 4 5 6 7} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+bond BCDOME.1.C4 BCDOME.7.O1
+set GCDOME head GCDOME.1.C4
+set GCDOME tail GCDOME.8.O1
+i GCDOME {1 2 3 4 5 6 7 8} {{O5 C1 O1 C4 109.0}{C1 O1 C4 C5 -111.00}}
+bond GCDOME.1.C4 GCDOME.8.O1
+
+# Summarize a-, b- and g-cyclodextrin names (per-OH, per-OAc, per-OBn, per-OBz & per-OMe)
+#
+# per-OH a-CD = ACDOH | per-OAc a-CD = ACDOAC | per-OBn a-CD = ACDOBN | per-OBz a-CD = ACDOBZ | per-OMe a-CD = ACDOME
+# per-OH b-CD = BCDOH | per-OAc b-CD = BCDOAC | per-OBn b-CD = BCDOBN | per-OBz b-CD = BCDOBZ | per-OMe b-CD = BCDOME
+# per-OH g-CD = GCDOH | per-OAc g-CD = GCDOAC | per-OBn g-CD = GCDOBN | per-OBz g-CD = GCDOBZ | per-OMe g-CD = GCDOME
+
+#############################################
+#  CREATE PER-OH WITH PEPTIDO-MANNO ARM(S)  #
+#############################################
+
+# Define the peptidic arm-1
+DIM1 = seq { AMO BM3 }
+set DIM1 head DIM1.2.C6
+TIM1 = seq { AMO DIM1 }
+set TIM1 head TIM1.3.NH1
+PEP1 = seq { SCC TYR TIM1 }
+set PEP1 tail PEP1.1.N1
+CJG1 = seq { PEP1 MGC }
+set CJG1 head CJG1.6.C4
+set CJG1 tail CJG1.6.O1
+
+# Define the peptidic arm-2
+DIM2 = seq { AMO BM4 }
+set DIM2 head DIM2.2.C6
+TIM2 = seq { AMO DIM2 }
+set TIM2 head TIM2.3.NH1
+PEP2 = seq { SCC TYR TIM2 }
+set PEP2 tail PEP2.1.N1
+CJG2 = seq { PEP2 MGC }
+set CJG2 head CJG2.6.C4
+set CJG2 tail CJG2.6.O1
+
+# per-OH beta-cyclodextrin with one peptide arm
+BCDOP1 = seq {CJG1 MGO MGO MGO MGO MGO MGO}
+set BCDOP1 head BCDOP1.6.C4
+set BCDOP1 tail BCDOP1.12.O1
+i BCDOP1 {5 6 7 8 9 10 11} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+#
+bond BCDOP1.6.C4 BCDOP1.12.O1
+
+# per-OH beta-cyclodextrin with one peptide arm
+BCDOP2 = seq {CJG2 MGO MGO MGO MGO MGO MGO}
+set BCDOP2 head BCDOP2.6.C4
+set BCDOP2 tail BCDOP2.12.O1
+#
+i BCDOP2 {6 7 8 9 10 11 12} {{O5 C1 O1 C4 98.0}{C1 O1 C4 C5 -103.00}}
+#
+bond BCDOP2.6.C4 BCDOP2.12.O1
+
+# Summarize a-, b- and g-cyclodextrin names; CD with peptido-manno-arm(s)
+# b-CD
+# BCDOP1: per-OH w/ one peptido-manno-arm at one 6-position; 1st tri-mannoside
+#
+# See  Smiljanic et al. Angew. Chem. 2006, 118, 5591–5594.
+# BCDOP2: per-OH w/ one peptido-manno-arm at one 6-position; 2nd tri-mannoside
+#
+# Do you want to build a-CD or g-CD ? Just remove or add a MGO residue ? => An example below:
+# GCDOP1 = seq {CJG1 MGO MGO MGO MGO MGO MGO MGO}
+# set GCDOP1 head GCDOP1.6.C4
+# set GCDOP1 tail GCDOP1.13.O1
+# i GCDOP1 {6 7 8 9 10 11 12 13} {{O5 C1 O1 C4 109.0}{C1 O1 C4 C5 -111.00}}
+# bond GCDOP1.6.C4 GCDOP1.13.O1
+#
+# For multiple peptide arms:
+# GCDOPX = seq {CJG2 MGO CJG2 MGO CJG2 MGO CJG2 MGO}
+# etc...
+
+# Check the total charges: should be all = 0.0000
+c ACDOH
+c BCDOH
+c GCDOH
+c ACDOAC
+c BCDOAC
+c GCDOAC
+c ACDOBN
+c BCDOBN
+c GCDOBN
+c ACDOBZ
+c BCDOBZ
+c GCDOBZ
+c ACDOME
+c BCDOME
+c GCDOME
+c BCDOP1
+c BCDOP2
+
+# c GCDOPX
+
+#saveoff  ACDOH q4md-CD.off
+#saveoff  BCDOH q4md-CD.off
+#saveoff  GCDOH q4md-CD.off
+#saveoff ACDOAC q4md-CD.off
+#saveoff BCDOAC q4md-CD.off
+#saveoff GCDOAC q4md-CD.off
+#saveoff ACDOBN q4md-CD.off
+#saveoff BCDOBN q4md-CD.off
+#saveoff GCDOBN q4md-CD.off
+#saveoff ACDOBZ q4md-CD.off
+#saveoff BCDOBZ q4md-CD.off
+#saveoff GCDOBZ q4md-CD.off
+#saveoff ACDOME q4md-CD.off
+#saveoff BCDOME q4md-CD.off
+#saveoff GCDOME q4md-CD.off
+#saveoff BCDOP1 q4md-CD.off
+#saveoff BCDOP2 q4md-CD.off
+
+# # Without any solvent...
+# savepdb ACDOH ACDOH.pdb
+# savepdb BCDOH BCDOH.pdb
+# savepdb GCDOH GCDOH.pdb
+# savepdb ACDOAC ACDOAC.pdb
+# savepdb BCDOAC BCDOAC.pdb
+# savepdb GCDOAC GCDOAC.pdb
+# savepdb ACDOBN ACDOBN.pdb
+# savepdb BCDOBN BCDOBN.pdb
+# savepdb GCDOBN GCDOBN.pdb
+# savepdb ACDOBZ ACDOBZ.pdb
+# savepdb BCDOBZ BCDOBZ.pdb
+# savepdb GCDOBZ GCDOBZ.pdb
+# savepdb ACDOME ACDOME.pdb
+# savepdb BCDOME BCDOME.pdb
+# savepdb GCDOME GCDOME.pdb
+# savepdb BCDOP1 BCDOP1.pdb
+# savepdb BCDOP2 BCDOP2.pdb
+
+# # Without any solvent for checking...
+# saveamberparm ACDOH ACDOH.top ACDOH.crd
+# saveamberparm BCDOH BCDOH.top BCDOH.crd
+# saveamberparm GCDOH GCDOH.top GCDOH.crd
+# saveamberparm ACDOAC ACDOAC.top ACDOAC.crd
+# saveamberparm BCDOAC BCDOAC.top BCDOAC.crd
+# saveamberparm GCDOAC GCDOAC.top GCDOAC.crd
+# saveamberparm ACDOBN ACDOBN.top ACDOBN.crd
+# saveamberparm BCDOBN BCDOBN.top BCDOBN.crd
+# saveamberparm GCDOBN GCDOBN.top GCDOBN.crd
+# saveamberparm ACDOBZ ACDOBZ.top ACDOBZ.crd
+# saveamberparm BCDOBZ BCDOBZ.top BCDOBZ.crd
+# saveamberparm GCDOBZ GCDOBZ.top GCDOBZ.crd
+# saveamberparm ACDOME ACDOME.top ACDOME.crd
+# saveamberparm BCDOME BCDOME.top BCDOME.crd
+# saveamberparm GCDOME GCDOME.top GCDOME.crd
+# saveamberparm BCDOP1 BCDOP1.top BCDOP1.crd
+# saveamberparm BCDOP2 BCDOP2.top BCDOP2.crd
+
+# Solvate structure using TIP3PBOX, DMSOBOX or CHCL3BOX
+# Warning: Solvation may not be adequate since some CDs might not be soluble in the given solvents
+# Anyway, let's generate all for them...
+#solvateOct ACDOH  TIP3PBOX 10
+#solvateOct BCDOH  TIP3PBOX 10
+#solvateOct GCDOH  TIP3PBOX 10
+#solvateOct ACDOAC TIP3PBOX 10
+#solvateOct BCDOAC TIP3PBOX 10
+#solvateOct GCDOAC TIP3PBOX 10
+#solvateOct ACDOBN TIP3PBOX 10
+#solvateOct BCDOBN TIP3PBOX 10
+#solvateOct GCDOBN TIP3PBOX 10
+#solvateOct ACDOBZ TIP3PBOX 10
+#solvateOct BCDOBZ TIP3PBOX 10
+#solvateOct GCDOBZ TIP3PBOX 10
+#solvateOct ACDOME TIP3PBOX 10
+#solvateOct BCDOME TIP3PBOX 10
+#solvateOct GCDOME TIP3PBOX 10
+#solvateOct BCDOP1 TIP3PBOX 10
+#solvateOct BCDOP2 TIP3PBOX 10
+#
+# solvateOct ACDOH  DMSOBOX 10
+# solvateOct BCDOH  DMSOBOX 10
+# solvateOct GCDOH  DMSOBOX 10
+# solvateOct ACDOAC DMSOBOX 10
+# solvateOct BCDOAC DMSOBOX 10
+# solvateOct GCDOAC DMSOBOX 10
+# solvateOct ACDOBN DMSOBOX 10
+# solvateOct BCDOBN DMSOBOX 10
+# solvateOct GCDOBN DMSOBOX 10
+# solvateOct ACDOBZ DMSOBOX 10
+# solvateOct BCDOBZ DMSOBOX 10
+# solvateOct GCDOBZ DMSOBOX 10
+# solvateOct ACDOME DMSOBOX 10
+# solvateOct BCDOME DMSOBOX 10
+# solvateOct GCDOME DMSOBOX 10
+# solvateOct BCDOP1 DMSOBOX 10
+# solvateOct BCDOP2 DMSOBOX 10
+#
+# solvateOct ACDOH  CHCL3BOX 10
+# solvateOct BCDOH  CHCL3BOX 10
+# solvateOct GCDOH  CHCL3BOX 10
+# solvateOct ACDOAC CHCL3BOX 10
+# solvateOct BCDOAC CHCL3BOX 10
+# solvateOct GCDOAC CHCL3BOX 10
+# solvateOct ACDOBN CHCL3BOX 10
+# solvateOct BCDOBN CHCL3BOX 10
+# solvateOct GCDOBN CHCL3BOX 10
+# solvateOct ACDOBZ CHCL3BOX 10
+# solvateOct BCDOBZ CHCL3BOX 10
+# solvateOct GCDOBZ CHCL3BOX 10
+# solvateOct ACDOME CHCL3BOX 10
+# solvateOct BCDOME CHCL3BOX 10
+# solvateOct GCDOME CHCL3BOX 10
+# solvateOct BCDOP1 CHCL3BOX 10
+# solvateOct BCDOP2 CHCL3BOX 10
+
+# Save prmtop/prmcrd files for solvated CDs with the solvent box previously selected
+#saveamberparm ACDOH ACDOHs.top ACDOHs.crd
+#saveamberparm BCDOH BCDOHs.top BCDOHs.crd
+#saveamberparm GCDOH GCDOHs.top GCDOHs.crd
+#saveamberparm ACDOAC ACDOACs.top ACDOACs.crd
+#saveamberparm BCDOAC BCDOACs.top BCDOACs.crd
+#saveamberparm GCDOAC GCDOACs.top GCDOACs.crd
+#saveamberparm ACDOBN ACDOBNs.top ACDOBNs.crd
+#saveamberparm BCDOBN BCDOBNs.top BCDOBNs.crd
+#saveamberparm GCDOBN GCDOBNs.top GCDOBNs.crd
+#saveamberparm ACDOBZ ACDOBZs.top ACDOBZs.crd
+#saveamberparm BCDOBZ BCDOBZs.top BCDOBZs.crd
+#saveamberparm GCDOBZ GCDOBZs.top GCDOBZs.crd
+#saveamberparm ACDOME ACDOMEs.top ACDOMEs.crd
+#saveamberparm BCDOME BCDOMEs.top BCDOMEs.crd
+#saveamberparm GCDOME GCDOMEs.top GCDOMEs.crd
+#saveamberparm BCDOP1 BCDOP1s.top BCDOP1s.crd
+#saveamberparm BCDOP2 BCDOP2s.top BCDOP2s.crd
+
+# q
+

@@ -1,0 +1,15 @@
+REMARK
+REMARK REORIENT 1 5 6 | 6 5 1
+REMARK
+ATOM      1 CX   OAc     1     -1.8601 -0.1636  0.0000
+ATOM      2 H1X  OAc     1     -2.0256  0.4412 -0.8808
+ATOM      3 H2X  OAc     1     -2.5242 -1.0145  0.0000
+ATOM      4 H3X  OAc     1     -2.0256  0.4412  0.8808
+ATOM      5 OS   OAc     1     -0.5470 -0.6953 -0.0000
+ATOM      6 C    OAc     1      0.4535  0.1756 -0.0000
+ATOM      7 O    OAc     1      0.2946  1.3531  0.0000
+ATOM      8 CM   OAc     1      1.7869 -0.5187  0.0000
+ATOM      9 HM1  OAc     1      1.8674 -1.1534 -0.8750
+ATOM     10 HM2  OAc     1      2.5773  0.2169 -0.0000
+ATOM     11 HM3  OAc     1      1.8674 -1.1534  0.8750
+END

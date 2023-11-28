@@ -30,6 +30,7 @@ class charge:
         self.mol_charge = None
         self.work_path = None
         self.num_confs = 1
+        self.formal_charge = 0
         self.charge = OrderedDict()    # key: (atom index, atom name)
         self.charge_avgstd = OrderedDict()    # key: (atom index, atom name)
 
@@ -49,6 +50,7 @@ class charge:
 
     def set_molecule_from_smile(self, smiles):
         self.mol = util.gen_mol_from_smiles(smiles, hydrogen=True)
+        self.formal_charge = AllChem.GetFormalCharge(AllChem.MolFromSmiles(smiles))
 
 
     def set_num_confs(self, num_confs):
@@ -93,7 +95,7 @@ class charge:
         os.chdir(self.work_path)
         for cid in range(self.num_confs):
             util.save_pdb(self.mol, "confId%d.pdb" % cid, conf_id=cid, bond=False)
-            subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "bcc", "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "bcc", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
         os.chdir(cwd)
 
 
@@ -216,101 +218,12 @@ class charge:
         return img
 
 
-class setup:
-    '''
-    Use antechamber and other amber tools to setup GAFF2 force fields as well as amber input topology and coordinate files.
-    '''
-    def __init__(self, antechamber_status=1, remove_antechamber_intermediate_files=True):
-        self.n_motif = 0
-        self.antechamber_status = antechamber_status
-        if remove_antechamber_intermediate_files:
-            self.raif = 'y'
-        else:
-            self.raif = 'n'
-        self.work_path = None
-        self.motif_pdb = []
-        self.motif_charge_file = []
-        self.receptor = None
-
-
-    def set_work_path(self, work_path="amber_forcefield"):
-        work_path = str(work_path)
-        if work_path[0] == '/' or work_path == '~':
-            self.work_path = work_path
-        else:
-            self.work_path = os.path.join(os.path.abspath(os.getcwd()), work_path)
-
-
-    def add_motif(self, pdb_file, charge_file):
-        pdb_abs = os.path.abspath(pdb_file)
-        charge_abs = os.path.abspath(charge_file)
-        self.motif_pdb.append(pdb_abs)
-        self.motif_charge_file.append(charge_abs)
-        self.n_motif += 1
-
-
-    def add_receptor(self, receptor_name="GCDOH"):
-        self.receptor = receptor_name
-
-
-    def run(self):
-        cwd = os.getcwd()
-        if os.path.exists(self.work_path):
-            shutil.rmtree(self.work_path)
-        os.makedirs(self.work_path)
-        os.chdir(self.work_path)
-
-        for i in range(self.n_motif):
-            subprocess.run(["antechamber", "-i", self.motif_pdb[i], "-fi", "pdb", "-o", "motif%d.mol2" % i, "-fo", "mol2", "-c", "rc", "-cf", self.motif_charge_file[i], "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
-            subprocess.run(["parmchk2", "-i", "motif%d.mol2" % i, "-f", "mol2", "-o", "motif%d.frcmod" % i, "-s", "gaff2"])
-
-        with open("tleap.in", "w") as f:
-            f.write("source leaprc.gaff2\n\n")
-
-            for i in range(self.n_motif):
-                f.write("motif%d = loadmol2 motif%d.mol2\n"  % (i, i))
-                f.write("check motif%d\n" % i)
-                f.write("loadamberparams motif%d.frcmod\n\n" % i)
-                #f.write("saveoff motif%d motif%.lib\n" % (i, i))
-
-            if self.receptor is not None:
-                shutil.copy2(files('silc.data.receptor').joinpath("glycam04.dat"), ".")
-                shutil.copy2(files('silc.data.receptor').joinpath("frcmod.q4md"), ".")
-                shutil.copy2(files('silc.data.receptor').joinpath("%s.pdb" % self.receptor), ".")
-                shutil.copy2(files('silc.data.receptor').joinpath("q4md-CD.off"), ".")
-
-                f.write("loadamberparams glycam04.dat\n")
-                f.write("loadamberparams frcmod.q4md\n")
-                f.write("%s = loadPDB %s.pdb\n" % (self.receptor, self.receptor))
-                f.write("loadoff q4md-CD.off\n\n")
-
-                f.write("complex = combine {%s" % self.receptor)
-                for i in range(self.n_motif):
-                    f.write(" motif%d" % i)
-                f.write("}\n")
-                f.write("check complex\n\n")
-
-                f.write("saveamberparm complex complex.prmtop complex.rst7\n")
-                f.write("savepdb complex complex.pdb\n\n")
-
-                f.write("loadoff solvents.lib\n")
-                f.write("solvateOct complex TIP3PBOX 14.0\n")
-                f.write("saveamberparm complex complex_solv.prmtop complex_solv.rst7\n")
-                f.write("savepdb complex complex_solv.pdb\n\n")
-
-            f.write("quit\n")
-        subprocess.run(["tleap", "-f", "tleap.in"])
-
-        os.chdir(cwd)
-
-
 class residue:
-    def __init__(self, charge_method='bcc', read_only=False, antechamber_status=1, remove_antechamber_intermediate_files=True):
+    def __init__(self, charge_method='bcc', antechamber_status=1, remove_antechamber_intermediate_files=True):
         '''
-        read_only: read only mode, only read partial charge from work_path where other partial charge calculation results are saved
+        Create Amber residue
         '''
         self.charge_method = charge_method
-        self.read_only = read_only
         self.antechamber_status = antechamber_status
         if remove_antechamber_intermediate_files:
             self.raif = 'y'
@@ -422,7 +335,7 @@ class residue:
                 elif neigh_atom.GetAtomicNum() in [6,7,8]:
                     head.append(neigh_atom.GetMonomerInfo().GetName().strip())
 
-        fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.smiles_with_dummy))    # formal charge
+        fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.smiles))    # formal charge
 
         if len(head) == 2:
             with open("mainchain.mol", "w") as f:
@@ -449,7 +362,7 @@ class residue:
 
 
         # prepare residues with amber tools
-        subprocess.run(["antechamber", "-i", os.path.join("amber_charge", "confId0.mol2"), "-fi", "mol2", "-o", "molecule.ac", "-fo", "ac", "-c", "rc", "-cf", chf, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+        subprocess.run(["antechamber", "-i", os.path.join("amber_charge", "confId0.mol2"), "-fi", "mol2", "-o", "molecule.ac", "-fo", "ac", "-nc", "%d" % fc, "-c", "rc", "-cf", chf, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
         if len(head) == 2:
             if self.resname is None:
                 subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule.prepi", "-f", "prepi", "-m", "mainchain.mol", "-rn", "RES", "-rf", "molecule.res"])

@@ -6,6 +6,7 @@ from importlib_resources import files
 import numpy as np
 import matplotlib.pyplot as plt
 from rdkit.Chem import AllChem
+from rdkit.Chem import rdChemReactions
 
 from . import util
 from .force_field import gaff2
@@ -13,7 +14,7 @@ from .force_field import gaff2
 
 class binding_molecule:
     '''
-    Build a ditopic motif molecule
+    Build a ditopic molecule or a binding motif.
     '''
     def __init__(self, charge_method='bcc'):
         self.charge_method = charge_method
@@ -29,6 +30,14 @@ class binding_molecule:
         self.mol = None
         self.work_path = None
         self.resource_path = None
+        self.ditopic_pdb = None
+        self.ditopic_mol = None
+        self.ditopic_charge = None
+        self.ditopic_smiles = None
+        self.motif_pdb = None
+        self.motif_mol = None
+        self.motif_charge = None
+        self.motif_smiles = None
 
 
     def set_core_smiles(self, smiles, dummy_replacement):
@@ -89,7 +98,6 @@ class binding_molecule:
         Create a ditopic molecule with the following structure: tail-core-bridge-core-tail
         '''
         cwd = os.getcwd()
-
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
         os.chdir(self.work_path)
@@ -104,6 +112,7 @@ class binding_molecule:
 
         # combine residues
         with open("tleap_ditopic.in", "w") as f:
+            f.write("logfile leap_ditopic.log\n")
             f.write("source leaprc.gaff2\n")
             f.write("loadamberprep COR/molecule.prepi\n")
             f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
@@ -111,6 +120,7 @@ class binding_molecule:
             f.write("loadamberprep BRD/molecule.prepi\n")
             f.write("mol = sequence {TLA COR BRD COR TLB}\n")
             f.write("savepdb mol ditopic.pdb\n")
+            f.write("savemol2 mol ditopic_Tripos.mol2 0\n")
             f.write("savemol2 mol ditopic.mol2 1\n")
             f.write("saveamberparm mol ditopic.prmtop ditopic.rst7\n")
             if solvate:
@@ -120,8 +130,40 @@ class binding_molecule:
                 f.write("saveamberparm mol ditopic_solv.prmtop ditopic_solv.rst7\n")
             f.write("quit\n")
         subprocess.run(["tleap", "-f", "tleap_ditopic.in"])
-        os.rename("leap.log", "leap_ditopic.log")
 
+        self.ditopic_pdb = os.path.join(os.path.abspath(os.getcwd()), "ditopic.pdb")
+        self.ditopic_mol2 = os.path.join(os.path.abspath(os.getcwd()), "ditopic.mol2")
+        self.ditopic_charge = util.read_mol2_charge(self.ditopic_mol2)
+
+        # create a smile string for the ditopic molecule by rdkit reaction
+        rxn = rdChemReactions.ReactionFromSmarts("[*:1][I:2].[I:3][*:4]>>[*:1][*:4]")
+        A = AllChem.MolFromSmiles(self.bridge_smiles.replace("*", "I"))
+        B = AllChem.MolFromSmiles(self.core_smiles.replace("*", "I"))
+        C = AllChem.MolFromSmiles(self.tail_smiles.replace("*", "I"))
+        # Reaction takes three steps:
+        # (1) B(core) + C(tail) -> BC, since B has two I groups, there will be two possible but equivalent products.
+        # (2) BC + A -> BCA, since A has two I groups, there will be two possible but equivalent products.
+        # (3) BC + BCA -> BCACB, only one possible product
+        ## reaction (1):
+        reacts = (B, C)
+        products = rxn.RunReactants(reacts)
+        print(len(products))    # output will be 2, since there will be two possible but equivalent products
+        BC = products[0][0]   # chose the first possible product (it does not make a different if we chose the second one by prod1 = products_1[1][0]
+        AllChem.SanitizeMol(BC)
+        ## reaction (2):
+        reacts = (BC, A)
+        products = rxn.RunReactants(reacts)
+        print(len(products))    # output will be 2, since there will be two possible but equivalent products
+        BCA = products[0][0]   # chose the first possible product (it does not make a different if we chose the second one by prod1 = products_1[1][0]
+        AllChem.SanitizeMol(BCA)
+        ## reaction (3):
+        reacts = (BC, BCA)
+        products = rxn.RunReactants(reacts)
+        print(len(products))    # output will be 1, only one possible product
+        CBABC = products[0][0]
+        AllChem.SanitizeMol(CBABC)
+        self.ditopic_smiles = AllChem.MolToSmiles(CBABC, canonical=False).replace('-','')
+    
         os.chdir(cwd)
 
 
@@ -130,7 +172,6 @@ class binding_molecule:
         Create a binding motif with the following structure: tail-core-tail
         '''
         cwd = os.getcwd()
-
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
         os.chdir(self.work_path)
@@ -143,12 +184,14 @@ class binding_molecule:
 
         # combine residues
         with open("tleap_motif.in", "w") as f:
+            f.write("logfile leap_motif.log\n")
             f.write("source leaprc.gaff2\n")
             f.write("loadamberprep COR/molecule.prepi\n")
             f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
             f.write("loadamberprep TLA_TLB/molecule_tail.prepi\n")
             f.write("mol = sequence {TLA COR TLB}\n")
             f.write("savepdb mol motif.pdb\n")
+            f.write("savemol2 mol motif_Tripos.mol2 0\n")
             f.write("savemol2 mol motif.mol2 1\n")
             f.write("saveamberparm mol motif.prmtop motif.rst7\n")
             if solvate:
@@ -158,7 +201,31 @@ class binding_molecule:
                 f.write("saveamberparm mol motif_solv.prmtop motif_solv.rst7\n")
             f.write("quit\n")
         subprocess.run(["tleap", "-f", "tleap_motif.in"])
-        os.rename("leap.log", "leap_motif.log")
+
+        self.motif_pdb = os.path.join(os.path.abspath(os.getcwd()), "motif.pdb")
+        self.motif_mol2 = os.path.join(os.path.abspath(os.getcwd()), "motif.mol2")
+        self.motif_charge = util.read_mol2_charge(self.motif_mol2)
+
+        # create a smile string for the binding motif by rdkit reaction
+        rxn = rdChemReactions.ReactionFromSmarts("[*:1][I:2].[I:3][*:4]>>[*:1][*:4]")
+        B = AllChem.MolFromSmiles(self.core_smiles.replace("*", "I"))
+        C = AllChem.MolFromSmiles(self.tail_smiles.replace("*", "I"))
+        # Reaction takes two steps:
+        # (1) B(core) + C(tail) -> BC, since B has two I groups, there will be two possible but equivalent products.
+        # (2) BC + C -> CBC, only one possible product
+        ## reaction (1):
+        reacts = (B, C)
+        products = rxn.RunReactants(reacts)
+        print(len(products))    # output will be 2, since there will be two possible but equivalent products
+        BC = products[0][0]   # chose the first possible product (it does not make a different if we chose the second one by prod1 = products_1[1][0]
+        AllChem.SanitizeMol(BC)
+        ## reaction (2):
+        reacts = (BC, C)
+        products = rxn.RunReactants(reacts)
+        print(len(products))    # output will be 1, only one possible product
+        CBC = products[0][0]
+        AllChem.SanitizeMol(CBC)
+        self.motif_smiles = AllChem.MolToSmiles(CBC, canonical=False).replace('-','')
 
         os.chdir(cwd)
 
@@ -242,3 +309,207 @@ class binding_molecule:
             res.set_resname_tail(resname[1])
             res.set_work_path("%s_%s" % (resname[0], resname[1]))
         res.run()
+
+
+    def write_ditopic_molecule_charge_file(self, file_name):
+        '''
+        write the partial charge into a file, using the same format by antechamber
+        '''
+        count = 0
+        with open(file_name, "w") as f:
+            for key, value in self.ditopic_charge.items():
+                f.write("%10.6lf" % value)
+                count += 1
+                if count == 8:
+                    count = 0
+                    f.write("\n")
+        file_abspath = os.path.join(os.path.abspath(os.getcwd()), file_name)
+        return file_abspath
+
+
+    def write_binding_motif_charge_file(self, file_name):
+        '''
+        write the partial charge into a file, using the same format by antechamber
+        '''
+        count = 0
+        with open(file_name, "w") as f:
+            for key, value in self.motif_charge.items():
+                f.write("%10.6lf" % value)
+                count += 1
+                if count == 8:
+                    count = 0
+                    f.write("\n")
+        file_abspath = os.path.join(os.path.abspath(os.getcwd()), file_name)
+        return file_abspath
+
+
+class complex():
+    def __init__(self, charge_method='bcc', antechamber_status=1, remove_antechamber_intermediate_files=True):
+        self.charge_method = charge_method
+        self.antechamber_status = antechamber_status
+        if remove_antechamber_intermediate_files:
+            self.raif = 'y'
+        else:
+            self.raif = 'n'
+        self.work_path = None
+        self.binding_molecule = None
+        self.dock = None
+
+
+    def set_work_path(self, work_path="complex"):
+        work_path = str(work_path)
+        if work_path[0] == '/' or work_path == '~':
+            self.work_path = work_path
+        else:
+            self.work_path = os.path.join(os.path.abspath(os.getcwd()), work_path)
+
+
+    def set_binding_molecule(self, binding_molecule):
+        self.binding_molecule = binding_molecule
+
+
+    def set_dock(self, dock):
+        self.dock = dock
+        
+
+    def clear_work_path(self):
+        if os.path.exists(self.work_path):
+            shutil.rmtree(self.work_path)
+
+
+    def create_receptor_motif_complex(self, n_motif, dock_pose_id):
+        cwd = os.getcwd()
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
+        os.chdir(self.work_path)
+
+        ligands = self.dock.ligand_mol(n_ligand=n_motif, pose_id=dock_pose_id)
+        core = AllChem.MolFromSmiles(self.binding_molecule.core_smiles.replace("*", ""))
+        motifs = []
+        expanded_cores = []
+        for i in range(n_motif):
+            expanded_corei = util.expand_substructure(ligands[i], core, expand_iteration=1)
+            expanded_cores.append(expanded_corei)
+            motif_template = AllChem.MolFromSmiles(self.binding_molecule.motif_smiles)
+            motif = AllChem.MolFromPDBFile(self.binding_molecule.motif_pdb, removeHs=False)
+            motif = AllChem.Mol(motif)
+            motif = AllChem.AssignBondOrdersFromTemplate(motif_template, motif)
+            motif = util.align_to_substructure(motif, expanded_corei, stretch=True)
+            motifs.append(motif)
+        self.dock.receptor, motifs = util.optimize_complex(self.dock.receptor, motifs, expanded_cores)
+
+        util.save_pdb(self.dock.receptor, "receptor.pdb", bond=False)
+        for i in range(n_motif):
+            util.save_pdb(motifs[i], "motif%d_nobond.pdb" % i, bond=False)
+            self.binding_molecule.write_binding_motif_charge_file("motif%d_charge.txt" % i)
+            fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.binding_molecule.motif_smiles))    # formal charge
+            subprocess.run(["antechamber", "-i", "motif%d_nobond.pdb" % i, "-fi", "pdb", "-o", "motif%d.mol2" % i, "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "motif%d_charge.txt" % i, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            subprocess.run(["parmchk2", "-i", "motif%d.mol2" % i, "-f", "mol2", "-o", "motif%d.frcmod" % i, "-s", "gaff2"])
+
+        with open("tleap_motif_complex.in", "w") as f:
+            f.write("logfile motif_complex.log\n")
+            f.write("source leaprc.gaff2\n")
+            f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
+
+            f.write("loadamberprep %s/COR/molecule.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/TLA_TLB/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/TLA_TLB/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            for i in range(n_motif):
+                f.write("motif%d = sequence {TLA COR TLB}\n" % i)
+                f.write("motif%d = loadpdb motif%d_nobond.pdb\n" % (i, i))
+            f.write("\n")
+
+            f.write("receptor = loadPDB receptor.pdb\n")
+            f.write("bond receptor.1.C4 receptor.8.O1\n\n")
+
+            f.write("complex = combine {receptor")
+            for i in range(n_motif):
+                f.write(" motif%d" % i)
+            f.write("}\n")
+            f.write("charge complex\n")
+            f.write("check complex\n\n")
+
+            f.write("saveamberparm complex motif_complex.prmtop motif_complex.rst7\n")
+            f.write("savemol2 complex motif_complex_Tripos.mol2 0\n")
+            f.write("savemol2 complex motif_complex.mol2 1\n")
+            f.write("savepdb complex motif_complex.pdb\n\n")
+
+            f.write("loadoff solvents.lib\n")
+            f.write("solvateOct complex TIP3PBOX 14.0\n")
+            f.write("saveamberparm complex motif_complex_solv.prmtop motif_complex_solv.rst7\n")
+            f.write("savepdb complex motif_complex_solv.pdb\n\n")
+
+            f.write("quit\n")
+        subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_motif_complex.in"])
+
+        os.chdir(cwd)
+
+    def create_receptor_ditopic_complex(self):
+        cwd = os.getcwd()
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
+        os.chdir(self.work_path)
+
+        ligands = self.dock.ligand_mol(n_ligand=2, pose_id=0)
+        core = AllChem.MolFromSmiles(self.binding_molecule.core_smiles.replace("*", ""))
+        expanded_core = util.expand_substructure(ligands[0], core, expand_iteration=1)
+        ditopic_template = AllChem.MolFromSmiles(self.binding_molecule.ditopic_smiles)
+        ditopic = AllChem.MolFromPDBFile(self.binding_molecule.ditopic_pdb, removeHs=False)
+        ditopic = AllChem.Mol(ditopic)
+        ditopic = AllChem.AssignBondOrdersFromTemplate(ditopic_template, ditopic)
+        match = ditopic.GetSubstructMatches(expanded_core)
+        pair1 = [(match[0][i], i) for i in range(len(match[0]))]
+        pair2 = [(match[1][i], i) for i in range(len(match[1]))]
+        AllChem.AlignMol(ditopic, expanded_core, atomMap=pair1)
+        comb = AllChem.CombineMols(ditopic, self.dock.receptor)
+        AllChem.AlignMol(comb, expanded_core, atomMap=pair2)
+        comb = AllChem.CombineMols(comb, self.dock.receptor)
+
+        frags = AllChem.GetMolFrags(comb, asMols=True)
+        ditopic = frags[0]
+        receptor0 = frags[1]
+        receptor1 = frags[2]
+
+        util.save_pdb(ditopic, "ditopic_nobond.pdb", bond=False)
+        util.save_pdb(receptor0, "receptor0_nobond.pdb", bond=False)
+        util.save_pdb(receptor1, "receptor1_nobond.pdb", bond=False)
+        self.binding_molecule.write_binding_motif_charge_file("ditopic_charge.txt")
+        fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.binding_molecule.motif_smiles))    # formal charge
+        subprocess.run(["antechamber", "-i", "ditopic_nobond.pdb", "-fi", "pdb", "-o", "ditopic.mol2", "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "ditopic_charge.txt", "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+        subprocess.run(["parmchk2", "-i", "ditopic.mol2", "-f", "mol2", "-o", "ditopic.frcmod", "-s", "gaff2"])
+
+        with open("tleap_ditopic_complex.in", "w") as f:
+            f.write("logfile ditopic_complex.log\n")
+            f.write("source leaprc.gaff2\n")
+            f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
+
+            f.write("loadamberprep %s/COR/molecule.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/TLA_TLB/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/TLA_TLB/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/BRD/molecule.prepi\n" % self.binding_molecule.work_path)
+            f.write("ditopic = sequence {TLA COR BRD COR TLB}\n")
+            f.write("ditopic = loadpdb ditopic_nobond.pdb\n")
+            f.write("receptor0 = loadPDB receptor0_nobond.pdb\n")
+            f.write("bond receptor0.1.C4 receptor0.8.O1\n\n")
+            f.write("receptor1 = loadPDB receptor1_nobond.pdb\n")
+            f.write("bond receptor1.1.C4 receptor1.8.O1\n\n")
+            f.write("\n")
+
+            f.write("complex = combine {ditopic receptor0 receptor1}\n")
+            f.write("charge complex\n")
+            f.write("check complex\n\n")
+
+            f.write("saveamberparm complex ditopic_complex.prmtop ditopic_complex.rst7\n")
+            f.write("savemol2 complex ditopic_complex_Tripos.mol2 0\n")
+            f.write("savemol2 complex ditopic_complex.mol2 1\n")
+            f.write("savepdb complex ditopic_complex.pdb\n\n")
+
+            f.write("loadoff solvents.lib\n")
+            f.write("solvateOct complex TIP3PBOX 14.0\n")
+            f.write("saveamberparm complex ditopic_complex_solv.prmtop ditopic_complex_solv.rst7\n")
+            f.write("savepdb complex ditopic_complex_solv.pdb\n\n")
+
+            f.write("quit\n")
+        subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_ditopic_complex.in"])
+
+        os.chdir(cwd)

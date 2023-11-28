@@ -32,7 +32,7 @@ class dock:
             self.receptor_pdb = os.path.join(self.receptor_pdb_path, "%s.pdb" % self.receptor_name)
         else:
             raise RuntimeError("Cannot find receptor.")
-        self.receptor = AllChem.MolFromPDBFile(self.receptor_pdb)
+        self.receptor = AllChem.MolFromPDBFile(self.receptor_pdb, removeHs=False)
 
         ### load affinity precalculated affinity map
         if self.use_receptor_database:
