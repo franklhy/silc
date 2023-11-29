@@ -1,11 +1,13 @@
-logfile leap_motif.log
 source leaprc.gaff2
+logfile leap_motif.log
 loadamberprep COR/molecule.prepi
 loadamberprep TLA_TLB/molecule_head.prepi
 loadamberprep TLA_TLB/molecule_tail.prepi
-mol = sequence {TLA COR TLB}
-savepdb mol motif.pdb
-savemol2 mol motif_Tripos.mol2 0
-savemol2 mol motif.mol2 1
-saveamberparm mol motif.prmtop motif.rst7
+mol0 = sequence {TLA COR TLB}
+translate mol0 {0.000000 0.000000 0.000000}
+mol_comb = combine {mol0 }
+savepdb mol_comb motif.pdb
+savemol2 mol_comb motif_Tripos.mol2 0
+savemol2 mol_comb motif.mol2 1
+saveamberparm mol_comb motif.prmtop motif.rst7
 quit

@@ -93,47 +93,17 @@ class binding_molecule:
             shutil.rmtree(self.work_path)
 
 
-    def create_ditopic_molecule(self, solvate=False):
+    def create_ditopic_molecule(self, solvate=False, counterion="Cl-", nmol=1, translate=[0.0, 0.0, 0.0]):
         '''
         Create a ditopic molecule with the following structure: tail-core-bridge-core-tail
+
+        nmol: create nmol copies of the binding motif
+        translate: should be a list of three numbers, used to translate copied molecules to prevent overlapping
         '''
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
         os.chdir(self.work_path)
-
-        # check if residues are already prepared, if not, prepare them.
-        if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):
-            self.prepare_amber_residue("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
-        if not self.check_amber_residues(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge):
-            self.prepare_amber_residue(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
-        if not self.check_amber_residues("BRD", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge):
-            self.prepare_amber_residue("BRD", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge)
-
-        # combine residues
-        with open("tleap_ditopic.in", "w") as f:
-            f.write("logfile leap_ditopic.log\n")
-            f.write("source leaprc.gaff2\n")
-            f.write("loadamberprep COR/molecule.prepi\n")
-            f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
-            f.write("loadamberprep TLA_TLB/molecule_tail.prepi\n")
-            f.write("loadamberprep BRD/molecule.prepi\n")
-            f.write("mol = sequence {TLA COR BRD COR TLB}\n")
-            f.write("savepdb mol ditopic.pdb\n")
-            f.write("savemol2 mol ditopic_Tripos.mol2 0\n")
-            f.write("savemol2 mol ditopic.mol2 1\n")
-            f.write("saveamberparm mol ditopic.prmtop ditopic.rst7\n")
-            if solvate:
-                f.write("source leaprc.water.tip3p\n")
-                f.write("solvateOct mol TIP3PBOX 14.0\n")
-                f.write("savepdb mol ditopic_solv.pdb\n")
-                f.write("saveamberparm mol ditopic_solv.prmtop ditopic_solv.rst7\n")
-            f.write("quit\n")
-        subprocess.run(["tleap", "-f", "tleap_ditopic.in"])
-
-        self.ditopic_pdb = os.path.join(os.path.abspath(os.getcwd()), "ditopic.pdb")
-        self.ditopic_mol2 = os.path.join(os.path.abspath(os.getcwd()), "ditopic.mol2")
-        self.ditopic_charge = util.read_mol2_charge(self.ditopic_mol2)
 
         # create a smile string for the ditopic molecule by rdkit reaction
         rxn = rdChemReactions.ReactionFromSmarts("[*:1][I:2].[I:3][*:4]>>[*:1][*:4]")
@@ -163,48 +133,69 @@ class binding_molecule:
         CBABC = products[0][0]
         AllChem.SanitizeMol(CBABC)
         self.ditopic_smiles = AllChem.MolToSmiles(CBABC, canonical=False).replace('-','')
-    
-        os.chdir(cwd)
-
-
-    def create_binding_motif(self, solvate=False):
-        '''
-        Create a binding motif with the following structure: tail-core-tail
-        '''
-        cwd = os.getcwd()
-        if not os.path.exists(self.work_path):
-            os.makedirs(self.work_path)
-        os.chdir(self.work_path)
 
         # check if residues are already prepared, if not, prepare them.
         if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):
             self.prepare_amber_residue("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
         if not self.check_amber_residues(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge):
             self.prepare_amber_residue(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
+        if not self.check_amber_residues("BRD", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge):
+            self.prepare_amber_residue("BRD", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge)
 
         # combine residues
-        with open("tleap_motif.in", "w") as f:
-            f.write("logfile leap_motif.log\n")
+        if nmol == 1:
+            appendix = ""
+        else:
+            appendix = "_%dmol" % nmol
+        with open("tleap_ditopic%s.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
+            f.write("logfile leap_ditopic%s.log\n" % appendix)
             f.write("loadamberprep COR/molecule.prepi\n")
             f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
             f.write("loadamberprep TLA_TLB/molecule_tail.prepi\n")
-            f.write("mol = sequence {TLA COR TLB}\n")
-            f.write("savepdb mol motif.pdb\n")
-            f.write("savemol2 mol motif_Tripos.mol2 0\n")
-            f.write("savemol2 mol motif.mol2 1\n")
-            f.write("saveamberparm mol motif.prmtop motif.rst7\n")
+            f.write("loadamberprep BRD/molecule.prepi\n")
+            for i in range(nmol):
+                f.write("mol%d = sequence {TLA COR BRD COR TLB}\n" % i)
+                f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
+            f.write("mol_comb = combine {")
+            for i in range(nmol):
+                f.write("mol%d " % i)
+            f.write("}\n")
+            f.write("savepdb mol_comb ditopic%s.pdb\n" % appendix)
+            f.write("savemol2 mol_comb ditopic_Tripos%s.mol2 0\n" % appendix)
+            f.write("savemol2 mol_comb ditopic%s.mol2 1\n" % appendix)
+            f.write("saveamberparm mol_comb ditopic%s.prmtop ditopic%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateOct mol TIP3PBOX 14.0\n")
-                f.write("savepdb mol motif_solv.pdb\n")
-                f.write("saveamberparm mol motif_solv.prmtop motif_solv.rst7\n")
+                f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
+                fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.ditopic_smiles))    # formal charge
+                if fc != 0:
+                    f.write("addIons2 complex %s 0\n" % counterion)
+                f.write("savepdb mol_comb ditopic%s_solv.pdb\n" % appendix)
+                f.write("saveamberparm mol_comb ditopic%s_solv.prmtop ditopic%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
-        subprocess.run(["tleap", "-f", "tleap_motif.in"])
+        result = subprocess.run(["tleap", "-f", "tleap_ditopic%s.in" % appendix])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
 
-        self.motif_pdb = os.path.join(os.path.abspath(os.getcwd()), "motif.pdb")
-        self.motif_mol2 = os.path.join(os.path.abspath(os.getcwd()), "motif.mol2")
-        self.motif_charge = util.read_mol2_charge(self.motif_mol2)
+        self.ditopic_pdb = os.path.join(os.path.abspath(os.getcwd()), "ditopic.pdb")
+        self.ditopic_mol2 = os.path.join(os.path.abspath(os.getcwd()), "ditopic.mol2")
+        self.ditopic_charge = util.read_mol2_charge(self.ditopic_mol2)
+    
+        os.chdir(cwd)
+
+
+    def create_binding_motif(self, solvate=False, counterion="Cl-", nmol=1, translate=[0.0, 0.0, 0.0]):
+        '''
+        Create a binding motif with the following structure: tail-core-tail
+
+        nmol: create nmol copies of the binding motif
+        translate: should be a list of three numbers, used to translate copied molecules to prevent overlapping
+        '''
+        cwd = os.getcwd()
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
+        os.chdir(self.work_path)
 
         # create a smile string for the binding motif by rdkit reaction
         rxn = rdChemReactions.ReactionFromSmarts("[*:1][I:2].[I:3][*:4]>>[*:1][*:4]")
@@ -226,6 +217,51 @@ class binding_molecule:
         CBC = products[0][0]
         AllChem.SanitizeMol(CBC)
         self.motif_smiles = AllChem.MolToSmiles(CBC, canonical=False).replace('-','')
+
+        # check if residues are already prepared, if not, prepare them.
+        if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):
+            self.prepare_amber_residue("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
+        if not self.check_amber_residues(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge):
+            self.prepare_amber_residue(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
+
+        # combine residues
+        if nmol == 1:
+            appendix = ""
+        else:
+            appendix = "_%dmol" % nmol
+        with open("tleap_motif%s.in" % appendix, "w") as f:
+            f.write("source leaprc.gaff2\n")
+            f.write("logfile leap_motif%s.log\n" % appendix)
+            f.write("loadamberprep COR/molecule.prepi\n")
+            f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
+            f.write("loadamberprep TLA_TLB/molecule_tail.prepi\n")
+            for i in range(nmol):
+                f.write("mol%d = sequence {TLA COR TLB}\n" % i)
+                f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
+            f.write("mol_comb = combine {")
+            for i in range(nmol):
+                f.write("mol%d " % i)
+            f.write("}\n")
+            f.write("savepdb mol_comb motif%s.pdb\n" % appendix)
+            f.write("savemol2 mol_comb motif_Tripos%s.mol2 0\n" % appendix)
+            f.write("savemol2 mol_comb motif%s.mol2 1\n" % appendix)
+            f.write("saveamberparm mol_comb motif%s.prmtop motif%s.rst7\n" % (appendix, appendix))
+            if solvate:
+                f.write("source leaprc.water.tip3p\n")
+                f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
+                fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.motif_smiles))    # formal charge
+                if fc != 0:
+                    f.write("addIons2 complex %s 0\n" % counterion)
+                f.write("savepdb mol_comb motif%s_solv.pdb\n" % appendix)
+                f.write("saveamberparm mol_comb motif%s_solv.prmtop motif%s_solv.rst7\n" % (appendix, appendix))
+            f.write("quit\n")
+        result = subprocess.run(["tleap", "-f", "tleap_motif%s.in" % appendix])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
+
+        self.motif_pdb = os.path.join(os.path.abspath(os.getcwd()), "motif.pdb")
+        self.motif_mol2 = os.path.join(os.path.abspath(os.getcwd()), "motif.mol2")
+        self.motif_charge = util.read_mol2_charge(self.motif_mol2)
 
         os.chdir(cwd)
 
@@ -377,7 +413,7 @@ class complex():
             shutil.rmtree(self.work_path)
 
 
-    def create_receptor_motif_complex(self, n_motif, dock_pose_id):
+    def create_receptor_motif_complex(self, n_motif, dock_pose_id, solvate=False, counterion="Cl-"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
@@ -407,8 +443,8 @@ class complex():
             subprocess.run(["parmchk2", "-i", "motif%d.mol2" % i, "-f", "mol2", "-o", "motif%d.frcmod" % i, "-s", "gaff2"])
 
         with open("tleap_motif_complex.in", "w") as f:
-            f.write("logfile motif_complex.log\n")
             f.write("source leaprc.gaff2\n")
+            f.write("logfile motif_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
 
             f.write("loadamberprep %s/COR/molecule.prepi\n" % self.binding_molecule.work_path)
@@ -434,17 +470,22 @@ class complex():
             f.write("savemol2 complex motif_complex.mol2 1\n")
             f.write("savepdb complex motif_complex.pdb\n\n")
 
-            f.write("loadoff solvents.lib\n")
-            f.write("solvateOct complex TIP3PBOX 14.0\n")
-            f.write("saveamberparm complex motif_complex_solv.prmtop motif_complex_solv.rst7\n")
-            f.write("savepdb complex motif_complex_solv.pdb\n\n")
+            if solvate:
+                f.write("loadoff solvents.lib\n")
+                f.write("solvateOct complex TIP3PBOX 14.0\n")
+                if fc != 0:
+                    f.write("addIons2 complex %s 0\n" % counterion)
+                f.write("saveamberparm complex motif_complex_solv.prmtop motif_complex_solv.rst7\n")
+                f.write("savepdb complex motif_complex_solv.pdb\n\n")
 
             f.write("quit\n")
-        subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_motif_complex.in"])
+        result = subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_motif_complex.in"])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
 
         os.chdir(cwd)
 
-    def create_receptor_ditopic_complex(self):
+    def create_receptor_ditopic_complex(self, solvate=False, counterion="Cl-"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
@@ -479,8 +520,8 @@ class complex():
         subprocess.run(["parmchk2", "-i", "ditopic.mol2", "-f", "mol2", "-o", "ditopic.frcmod", "-s", "gaff2"])
 
         with open("tleap_ditopic_complex.in", "w") as f:
-            f.write("logfile ditopic_complex.log\n")
             f.write("source leaprc.gaff2\n")
+            f.write("logfile ditopic_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
 
             f.write("loadamberprep %s/COR/molecule.prepi\n" % self.binding_molecule.work_path)
@@ -504,12 +545,17 @@ class complex():
             f.write("savemol2 complex ditopic_complex.mol2 1\n")
             f.write("savepdb complex ditopic_complex.pdb\n\n")
 
-            f.write("loadoff solvents.lib\n")
-            f.write("solvateOct complex TIP3PBOX 14.0\n")
-            f.write("saveamberparm complex ditopic_complex_solv.prmtop ditopic_complex_solv.rst7\n")
-            f.write("savepdb complex ditopic_complex_solv.pdb\n\n")
+            if solvate:
+                f.write("loadoff solvents.lib\n")
+                f.write("solvateOct complex TIP3PBOX 14.0\n")
+                if fc != 0:
+                    f.write("addIons2 complex %s 0\n" % counterion)
+                f.write("saveamberparm complex ditopic_complex_solv.prmtop ditopic_complex_solv.rst7\n")
+                f.write("savepdb complex ditopic_complex_solv.pdb\n\n")
 
             f.write("quit\n")
-        subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_ditopic_complex.in"])
+        result = subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_ditopic_complex.in"])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
 
         os.chdir(cwd)

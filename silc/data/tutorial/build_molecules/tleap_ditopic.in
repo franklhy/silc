@@ -1,5 +1,5 @@
-logfile leap_ditopic.log
 source leaprc.gaff2
+logfile leap_ditopic.log
 loadamberprep COR/molecule.prepi
 loadamberprep TLA_TLB/molecule_head.prepi
 loadamberprep TLA_TLB/molecule_tail.prepi
