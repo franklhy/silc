@@ -7,6 +7,7 @@ from importlib_resources import files
 import numpy as np
 import matplotlib.pyplot as plt
 from rdkit.Chem import AllChem
+from rdkit.Chem import Draw
 
 from .. import util
 
@@ -305,6 +306,12 @@ class residue:
         with open("smiles.txt", "w") as f:
             f.write("%s\n" % self.smiles_with_dummy)
             f.write("*:%s\n" % self.replace_dummy_with)
+
+        img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.smiles_with_dummy),
+                                    AllChem.MolFromSmiles(self.smiles)], 
+                                    molsPerRow=1, subImgSize=(800, 400), useSVG=True)
+        with open("residue.svg", "w") as svg:
+            svg.write(img)
 
         # calculate partial charge
         chg = charge(method=self.charge_method)

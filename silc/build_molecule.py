@@ -6,6 +6,7 @@ from importlib_resources import files
 import numpy as np
 import matplotlib.pyplot as plt
 from rdkit.Chem import AllChem
+from rdkit.Chem import Draw
 from rdkit.Chem import rdChemReactions
 
 from . import util
@@ -133,6 +134,10 @@ class binding_molecule:
         CBABC = products[0][0]
         AllChem.SanitizeMol(CBABC)
         self.ditopic_smiles = AllChem.MolToSmiles(CBABC, canonical=False).replace('-','')
+        img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.ditopic_smiles),],
+                                    molsPerRow=1, subImgSize=(1200, 800), useSVG=True)
+        with open("ditopic.svg", "w") as svg:
+            svg.write(img)
 
         # check if residues are already prepared, if not, prepare them.
         if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):
@@ -217,6 +222,11 @@ class binding_molecule:
         CBC = products[0][0]
         AllChem.SanitizeMol(CBC)
         self.motif_smiles = AllChem.MolToSmiles(CBC, canonical=False).replace('-','')
+        img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.motif_smiles),],
+                                    molsPerRow=1, subImgSize=(1200, 800), useSVG=True)
+        with open("motif.svg", "w") as svg:
+            svg.write(img)
+
 
         # check if residues are already prepared, if not, prepare them.
         if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):

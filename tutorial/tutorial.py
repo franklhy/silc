@@ -13,22 +13,22 @@ core_smiles = "*Oc6ccc(c2ccc3ccc5c(c1ccc(O*)cc1)ccc4ccc2c3c45)cc6"
 tail_smiles = lambda nEO: "C=CC" + "OCC"*nEO + "*"
 bridge_smiles = lambda nEO: "O=C(O)c1cc(c2ccc(C" + "OCC" * nEO + "*)cc2)cc(c2ccc(C" + "OCC" * nEO + "*)cc2)c1"
 
-
+'''
 if os.path.exists("molecules"):
     shutil.rmtree("molecules")
 os.mkdir("molecules")
 shutil.copytree(files('silc.data.tutorial.build_molecules').joinpath('COR'), os.path.join("molecules", "COR"))
 shutil.copytree(files('silc.data.tutorial.build_molecules').joinpath('BRD'), os.path.join("molecules", "BRD"))
 shutil.copytree(files('silc.data.tutorial.build_molecules').joinpath('TLA_TLB'), os.path.join("molecules", "TLA_TLB"))
-
+'''
 
 bm = binding_molecule()
 bm.set_core_smiles(core_smiles, "C")
 bm.set_tail_smiles(tail_smiles(3), "O")
 bm.set_bridge_smiles(bridge_smiles(1), "O")
 bm.set_core_num_confs_for_charge(1)
-bm.set_tail_num_confs_for_charge(5)
-bm.set_bridge_num_confs_for_charge(5)
+bm.set_tail_num_confs_for_charge(1) # 5
+bm.set_bridge_num_confs_for_charge(1) # 5
 bm.set_work_path("molecules")
 bm.create_binding_motif(solvate=True)
 bm.create_binding_motif(solvate=True, nmol=2, translate=[0,10,10])
