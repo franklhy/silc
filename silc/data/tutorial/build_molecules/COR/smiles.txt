@@ -1,2 +1,0 @@
-*Oc6ccc(c2ccc3ccc5c(c1ccc(O*)cc1)ccc4ccc2c3c45)cc6
-*:C

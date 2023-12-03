@@ -230,56 +230,76 @@ class residue:
             self.raif = 'y'
         else:
             self.raif = 'n'
-        self.resname = None
+        self.restype = None
         self.resname_head = None    # residue name for head capping residue
         self.resname_tail = None    # residue name for tail capping residue
-        self.replace_dummy_with = None
         self.smiles_with_dummy = None
         self.smiles = None
+        self.num_dummy = None
+        self.replace_dummy_with = []
         self.work_path = None
+        self.database = None
         self.num_confs = 5
 
-    def set_resname(self, resname):
+    def set_restype(self, restype):
         '''
-        Set residue name
+        Set residue type. Choose from "tail", "core", "bridge"
         '''
-        if len(resname) != 3 or not isinstance(resname, str):
-            raise RuntimeError("Need three letters for residue name.")
-        self.resname = resname.upper()
-
-
-    def set_resname_head(self, resname):
-        '''
-        Set residue name for head capping residue
-        '''
-        if len(resname) != 3 or not isinstance(resname, str):
-            raise RuntimeError("Need three letters for residue name.")
-        self.resname_head = resname.upper()
-
-
-    def set_resname_tail(self, resname):
-        '''
-        Set residue name for tail capping residue
-        '''
-        if len(resname) != 3 or not isinstance(resname, str):
-            raise RuntimeError("Need three letters for residue name.")
-        self.resname_tail = resname.upper()
-
-
-    def set_dummy_replacement(self, dummy_replacement):
-        if isinstance(dummy_replacement, str) and len(dummy_replacement) == 1:
-            self.replace_dummy_with = dummy_replacement
+        if restype in ["tail", "core", "bridge"]:
+            self.restype = restype
         else:
-            raise RuntimeError("Invalide dummy replacement atom.")
+            raise RuntimeError("Residue type should be chosen from [\"tail\", \"core\", \"bridge\"]")
+
+        if restype == "tail":
+            self.resname_head = "TLA"
+            self.resname_tail = "TLB"
+        elif restype == "core":
+            self.resname_head = "CRA"
+            self.resname_tail = "CRB"
+        elif restype == "bridge":
+            ### bridge should be a symmetric molecule, so there will be only one residue name
+            self.resname_head = "BRD"
+            self.resname_tail = "BRD"
 
 
     def set_smiles(self, smiles):
-        if self.replace_dummy_with is None:
-            raise RuntimeError("Please set dummy replacement first using set_dummy_replacement().")
-        if smiles.count("*") == 0:
+        smiles = AllChem.MolToSmiles(AllChem.MolFromSmiles(smiles))    # get canonical smiles
+        self.num_dummy = smiles.count("*")
+        if self.num_dummy == 0:
             raise RuntimeError("Need dummy atoms to perform reaction.")
+        elif self.num_dummy == 1:
+            if smiles.find("[1*]") == -1:
+                raise RuntimeError("Dummy atom should be label as \"[1*]\".")
+        elif self.num_dummy == 2:
+            if smiles.find("[1*]") == -1 or smiles.find("[2*]") == -1:
+                raise RuntimeError("Dummy atom should be label as \"[1*]\" (as head dummy atom) and \"[2*]\" (as tail dummy atom).")
+        else:
+            raise RuntimeError("Too many dummy atoms. Should be less than three.")
         self.smiles_with_dummy = smiles
-        self.smiles = smiles.replace("*", self.replace_dummy_with)
+        
+
+    def set_dummy_replacement(self, dummy_replacement):
+        if self.smiles_with_dummy is None:
+            raise RuntimeError("Please set dummy replacement first using set_dummy_replacement().")
+        if isinstance(dummy_replacement, list) and len(dummy_replacement) == self.num_dummy:
+            for i in range(len(dummy_replacement)):
+                if len(dummy_replacement[i]) == 1:
+                    self.replace_dummy_with.append(dummy_replacement[i])
+        else:
+            raise RuntimeError("Invalide dummy replacement atom. It should be a list a atom character, with the same number of input dummy atoms.")
+
+        if self.num_dummy == 1:
+            self.smiles = self.smiles_with_dummy
+            loc = self.smiles.find("[1*]")
+            self.smiles = self.smiles[:loc] + self.replace_dummy_with[0] + self.smiles[loc+4:]
+        elif self.num_dummy == 2:
+            self.smiles = self.smiles_with_dummy
+            ### replace the first dummy atom
+            loc = self.smiles.find("[1*]")
+            self.smiles = self.smiles[:loc] + self.replace_dummy_with[0] + self.smiles[loc+4:]
+            ### replace the second dummy atom
+            loc = self.smiles.find("[2*]")
+            self.smiles = self.smiles[:loc] + self.replace_dummy_with[1] + self.smiles[loc+4:]
 
 
     def set_work_path(self, work_path):
@@ -287,6 +307,18 @@ class residue:
             self.work_path = work_path
         else:
             self.work_path = os.path.join(os.path.abspath(os.getcwd()), work_path)
+
+
+    def set_database(self, database=None):
+        '''
+        default path is the silc/data/residue
+        '''
+        if database is None:
+            self.database = str(files('silc.data').joinpath('residue'))
+        elif database[0] == '/' or database == '~':
+            self.database = database
+        else:
+            self.database = os.path.join(os.path.abspath(os.getcwd()), database)
 
 
     def set_num_confs(self, num_confs):
@@ -297,21 +329,40 @@ class residue:
 
 
     def run(self):
+        # check if the residue already exists in the work path
+        # if so, then don't need to generate the residue again
+        if self._check_path(self.work_path):
+            print("Residue exists in work path at %s" % self.work_path)
+            return
+        
+        # check if the residue already exists in the database
+        # if so, copy the residue from the database
+        res_datapath = self._check_database()
+        if res_datapath:
+            shutil.copytree(res_datapath, self.work_path)
+            return
+
+        # if the residue is not in the current work path, nor in the database
+        # then start to prepare the residue
         cwd = os.getcwd()
         if os.path.exists(self.work_path):
             shutil.rmtree(self.work_path)
         os.makedirs(self.work_path)
         os.chdir(self.work_path)
-
+        
         with open("smiles.txt", "w") as f:
             f.write("%s\n" % self.smiles_with_dummy)
-            f.write("*:%s\n" % self.replace_dummy_with)
+            for i in range(self.num_dummy):
+                f.write("[%d*]:%s\n" % (i+1, self.replace_dummy_with[i]))
 
         img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.smiles_with_dummy),
                                     AllChem.MolFromSmiles(self.smiles)], 
                                     molsPerRow=1, subImgSize=(800, 400), useSVG=True)
         with open("residue.svg", "w") as svg:
-            svg.write(img)
+            if isinstance(img, str):
+                svg.write(img)
+            else:
+                svg.write(img.data)
 
         # calculate partial charge
         chg = charge(method=self.charge_method)
@@ -320,19 +371,31 @@ class residue:
         chg.set_num_confs(self.num_confs)
         chg.run()
         chf = chg.write_charge(file_name=os.path.join("amber_charge", "partial_charge.txt"))
-
-        # prepare mainchain file
+        
+        # identify dummy atoms
         mol = AllChem.MolFromSmiles(self.smiles_with_dummy)
         dummy = []
         for i in range(mol.GetNumAtoms()):
             if mol.GetAtomWithIdx(i).GetMass() == 0:
                 dummy.append(i)
+        if len(dummy) != self.num_dummy:
+            raise RuntimeError("Something is wrong")
+        # identify head ([1*]) and tail ([2*]) dummy atoms
+        # atom index follows the sequence in the input smiles string, and this can be use to identify which dummy atom is head or tail
+        # dummy[0] is the head dummy atom, and dummy[1] is the tail dummy atom
+        if len(dummy) == 2:
+            loc1 = self.smiles_with_dummy.find("[1*]")
+            loc2 = self.smiles_with_dummy.find("[2*]")
+            if loc1 > loc2:
+                dummy_tmp = dummy[0]
+                dummy[0] = dummy[1]
+                dummy[1] = dummy_tmp
 
         mol = AllChem.MolFromPDBBlock(AllChem.MolToPDBBlock(chg.mol), removeHs=False)
         remove = []
-        head = []
-        for atom_idx in dummy:
-            atom = mol.GetAtomWithIdx(atom_idx)
+        head = []   # head[0] is the head atom, and head[1] is the tail atom
+        for i in range(len(dummy)):
+            atom = mol.GetAtomWithIdx(dummy[i])
             remove.append(atom.GetMonomerInfo().GetName().strip())
             for neighbor in atom.GetNeighbors():
                 neighbor_idx = neighbor.GetIdx()
@@ -344,46 +407,107 @@ class residue:
 
         fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.smiles))    # formal charge
 
+        # prepare mainchain file
         if len(head) == 2:
-            with open("mainchain.mol", "w") as f:
+            # head residue
+            with open("mainchain_head.mc", "w") as f:
                 f.write("HEAD_NAME %s\n" % head[0])
                 f.write("TAIL_NAME %s\n" % head[1])
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
                 f.write("CHARGE %g\n" % fc)
-        elif len(head) == 1:
-            ### head capping residue
-            with open("mainchain_head.mol", "w") as f:
+            # tail residue (reverse the head and tail atoms)
+            with open("mainchain_tail.mc", "w") as f:
+                f.write("HEAD_NAME %s\n" % head[1])
                 f.write("TAIL_NAME %s\n" % head[0])
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
                 f.write("CHARGE %g\n" % fc)
-            ### tail capping residue
-            with open("mainchain_tail.mol", "w") as f:
+        elif len(head) == 1:
+            # with only one dummy atom, we need to find another chain end
+            chain_end_atom_idx = []
+            mol = AllChem.MolFromPDBBlock(AllChem.MolToPDBBlock(chg.mol))
+            for atom in mol.GetAtoms():
+                ## Check if the atom is connected to only one other atom (chain end)
+                if atom.GetDegree() == 1:
+                    chain_end_atom_idx.append(atom.GetIdx())
+            ## calculate the topological distance matrix, to get the number of bonds between chain ends
+            dm = AllChem.GetDistanceMatrix(mol)
+            ## for all chain ends, find the one farthest from the dummy atom
+            distance = 0
+            end = dummy[0]
+            for atomi in chain_end_atom_idx:
+                if dm[atomi,dummy[0]] > distance:
+                    distance = dm[atomi,dummy[0]]
+                    end = atomi
+            end = mol.GetAtomWithIdx(end).GetMonomerInfo().GetName().strip()
+
+            # head capping residue
+            with open("mainchain_head.mc", "w") as f:
+                f.write("HEAD_NAME %s\n" % end)
+                f.write("TAIL_NAME %s\n" % head[0])
+                for i in range(len(remove)):
+                    f.write("OMIT_NAME %s\n" % remove[i])
+                f.write("CHARGE %g\n" % fc)
+            # tail capping residue
+            with open("mainchain_tail.mc", "w") as f:
                 f.write("HEAD_NAME %s\n" % head[0])
+                f.write("TAIL_NAME %s\n" % end)
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
                 f.write("CHARGE %g\n" % fc)
         else:
             raise RuntimeError("cannot create a residue for the molecule given its SMILES: %s" % self.smiles_with_dummy)
 
-
         # prepare residues with amber tools
         subprocess.run(["antechamber", "-i", os.path.join("amber_charge", "confId0.mol2"), "-fi", "mol2", "-o", "molecule.ac", "-fo", "ac", "-nc", "%d" % fc, "-c", "rc", "-cf", chf, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
-        if len(head) == 2:
-            if self.resname is None:
-                subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule.prepi", "-f", "prepi", "-m", "mainchain.mol", "-rn", "RES", "-rf", "molecule.res"])
-            else:
-                subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule.prepi", "-f", "prepi", "-m", "mainchain.mol", "-rn", self.resname, "-rf", "molecule.res"])
-        elif len(head) == 1:
-            if self.resname_head is None:
-                subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_head.prepi", "-f", "prepi", "-m", "mainchain_head.mol", "-rn", "RSH", "-rf", "molecule_head.res"])
-            else:
-                subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_head.prepi", "-f", "prepi", "-m", "mainchain_head.mol", "-rn", self.resname_head, "-rf", "molecule_head.res"])
-
-            if self.resname_tail is None:
-                subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_tail.prepi", "-f", "prepi", "-m", "mainchain_tail.mol", "-rn", "RST", "-rf", "molecule_tail.res"])
-            else:
-                subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_tail.prepi", "-f", "prepi", "-m", "mainchain_tail.mol", "-rn", self.resname_tail, "-rf", "molecule_tail.res"])
-
+        subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_head.prepi", "-f", "prepi", "-m", "mainchain_head.mc", "-rn", self.resname_head, "-rf", "molecule_head.res"])
+        subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_tail.prepi", "-f", "prepi", "-m", "mainchain_tail.mc", "-rn", self.resname_tail, "-rf", "molecule_tail.res"])
+        os.remove("ATOMTYPE.INF")
+        os.remove("NEWPDB.PDB")
+        os.remove("PREP.INF")
         os.chdir(cwd)
+
+
+    def _check_path(self, path):
+        try:
+            with open(os.path.join(path, "smiles.txt"), "r") as f:
+                # check smiles string (with dummy atoms)
+                s = f.readline().strip('\n')
+                if s != self.smiles_with_dummy:
+                    return False
+                # check dummy atoms
+                dummy_flag = True
+                for i in range(self.num_dummy):
+                    dummy = f.readline().strip('\n')[5]
+                    if dummy != self.replace_dummy_with[i]:
+                        dummy_flag = False
+                if not dummy_flag:
+                    return False
+            # check if there are enough conformer
+            for i in range(self.num_confs):
+                with open(os.path.join(path, "amber_charge", "confId%i.mol2" % i), "r") as f:
+                    lines = f.readlines()
+                    if len(lines) == 0:
+                        return False
+            # check if prepi file exists:
+            if not os.path.isfile(os.path.join(path,"molecule_head.prepi")) or not os.path.isfile(os.path.join(path,"molecule_tail.prepi")):
+                return False
+            return True  
+        except:
+            return False
+        
+
+    def _check_database(self):
+        '''
+        Check if the amber residue is already created and included in the database path
+
+        return None is not found, else return the path of the residue from the database
+        '''
+        res_path = os.path.join(self.database, self.restype)
+        sub_path = [f.path for f in os.scandir(res_path) if f.is_dir()]
+        for sp in sub_path:
+            if self._check_path(sp):
+                print("Find residue in database at %s" % sp)
+                return sp
+        return None

@@ -42,22 +42,32 @@ class binding_molecule:
 
 
     def set_core_smiles(self, smiles, dummy_replacement):
+        self._check_smiles(smiles)
         if smiles.count("*") != 2:
             raise RuntimeError("Need 2 dummy atoms for core SMILES to perform reaction.")
+        if not isinstance(dummy_replacement, list) or len(dummy_replacement) != 2:
+            raise RuntimeError("Need 2 dummy atoms replacements for core.")
+        self._check_smiles(smiles)
         self.core_smiles = smiles
         self.core_dummy_replacement = dummy_replacement
 
 
     def set_tail_smiles(self, smiles, dummy_replacement):
+        self._check_smiles(smiles)
         if smiles.count("*") != 1:
             raise RuntimeError("Need 1 dummy atom for tail SMILES to perform reaction.")
+        if not isinstance(dummy_replacement, list) or len(dummy_replacement) != 1:
+            raise RuntimeError("Need 1 dummy atoms replacements for tail.")
         self.tail_smiles = smiles
         self.tail_dummy_replacement = dummy_replacement
 
 
     def set_bridge_smiles(self, smiles, dummy_replacement):
+        self._check_smiles(smiles)
         if smiles.count("*") != 2:
             raise RuntimeError("Need 2 dummy atoms for bridge SMILES to perform reaction.")
+        if not isinstance(dummy_replacement, list) or len(dummy_replacement) != 2:
+            raise RuntimeError("Need 2 dummy atoms replacements for bridge.")
         self.bridge_smiles = smiles
         self.bridge_dummy_replacement = dummy_replacement
 
@@ -94,7 +104,7 @@ class binding_molecule:
             shutil.rmtree(self.work_path)
 
 
-    def create_ditopic_molecule(self, solvate=False, counterion="Cl-", nmol=1, translate=[0.0, 0.0, 0.0]):
+    def create_ditopic_molecule(self, solvate=False, counter_anion="Cl-", counter_cation="Na+", nmol=1, translate=[0.0, 0.0, 0.0]):
         '''
         Create a ditopic molecule with the following structure: tail-core-bridge-core-tail
 
@@ -107,45 +117,24 @@ class binding_molecule:
         os.chdir(self.work_path)
 
         # create a smile string for the ditopic molecule by rdkit reaction
-        rxn = rdChemReactions.ReactionFromSmarts("[*:1][I:2].[I:3][*:4]>>[*:1][*:4]")
-        A = AllChem.MolFromSmiles(self.bridge_smiles.replace("*", "I"))
-        B = AllChem.MolFromSmiles(self.core_smiles.replace("*", "I"))
-        C = AllChem.MolFromSmiles(self.tail_smiles.replace("*", "I"))
-        # Reaction takes three steps:
-        # (1) B(core) + C(tail) -> BC, since B has two I groups, there will be two possible but equivalent products.
-        # (2) BC + A -> BCA, since A has two I groups, there will be two possible but equivalent products.
-        # (3) BC + BCA -> BCACB, only one possible product
-        ## reaction (1):
-        reacts = (B, C)
-        products = rxn.RunReactants(reacts)
-        print(len(products))    # output will be 2, since there will be two possible but equivalent products
-        BC = products[0][0]   # chose the first possible product (it does not make a different if we chose the second one by prod1 = products_1[1][0]
-        AllChem.SanitizeMol(BC)
-        ## reaction (2):
-        reacts = (BC, A)
-        products = rxn.RunReactants(reacts)
-        print(len(products))    # output will be 2, since there will be two possible but equivalent products
-        BCA = products[0][0]   # chose the first possible product (it does not make a different if we chose the second one by prod1 = products_1[1][0]
-        AllChem.SanitizeMol(BCA)
-        ## reaction (3):
-        reacts = (BC, BCA)
-        products = rxn.RunReactants(reacts)
-        print(len(products))    # output will be 1, only one possible product
-        CBABC = products[0][0]
-        AllChem.SanitizeMol(CBABC)
-        self.ditopic_smiles = AllChem.MolToSmiles(CBABC, canonical=False).replace('-','')
+        A = AllChem.MolFromSmiles(util.replace_dummy(self.bridge_smiles, ["K", "I"]))
+        B = AllChem.MolFromSmiles(util.replace_dummy(self.core_smiles, ["K", "I"]))
+        Ca = AllChem.MolFromSmiles(util.replace_dummy(self.tail_smiles, ["K"]))
+        Cb = AllChem.MolFromSmiles(util.replace_dummy(self.tail_smiles, ["I"]))
+        prod = self._reaction([Ca, B, A, B, Cb])
+        self.ditopic_smiles = AllChem.MolToSmiles(prod)
         img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.ditopic_smiles),],
                                     molsPerRow=1, subImgSize=(1200, 800), useSVG=True)
         with open("ditopic.svg", "w") as svg:
-            svg.write(img)
+            if isinstance(img, str):
+                svg.write(img)
+            else:
+                svg.write(img.data)
 
-        # check if residues are already prepared, if not, prepare them.
-        if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):
-            self.prepare_amber_residue("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
-        if not self.check_amber_residues(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge):
-            self.prepare_amber_residue(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
-        if not self.check_amber_residues("BRD", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge):
-            self.prepare_amber_residue("BRD", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge)
+        # prepare residues
+        self._prepare_amber_residue("core", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
+        self._prepare_amber_residue("tail", self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
+        self._prepare_amber_residue("bridge", self.bridge_smiles, self.bridge_dummy_replacement, self.bridge_num_confs_for_charge)
 
         # combine residues
         if nmol == 1:
@@ -155,12 +144,14 @@ class binding_molecule:
         with open("tleap_ditopic%s.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_ditopic%s.log\n" % appendix)
-            f.write("loadamberprep COR/molecule.prepi\n")
-            f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
-            f.write("loadamberprep TLA_TLB/molecule_tail.prepi\n")
-            f.write("loadamberprep BRD/molecule.prepi\n")
+            f.write("loadamberprep core/molecule_head.prepi\n")
+            f.write("loadamberprep core/molecule_tail.prepi\n")
+            f.write("loadamberprep tail/molecule_head.prepi\n")
+            f.write("loadamberprep tail/molecule_tail.prepi\n")
+            f.write("loadamberprep bridge/molecule_head.prepi\n")
+            f.write("loadamberprep bridge/molecule_tail.prepi\n")
             for i in range(nmol):
-                f.write("mol%d = sequence {TLA COR BRD COR TLB}\n" % i)
+                f.write("mol%d = sequence {TLA CRA BRD CRB TLB}\n" % i)
                 f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
             f.write("mol_comb = combine {")
             for i in range(nmol):
@@ -174,8 +165,12 @@ class binding_molecule:
                 f.write("source leaprc.water.tip3p\n")
                 f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.ditopic_smiles))    # formal charge
-                if fc != 0:
-                    f.write("addIons2 complex %s 0\n" % counterion)
+                if fc > 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                elif fc < 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_cation)
                 f.write("savepdb mol_comb ditopic%s_solv.pdb\n" % appendix)
                 f.write("saveamberparm mol_comb ditopic%s_solv.prmtop ditopic%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
@@ -190,7 +185,7 @@ class binding_molecule:
         os.chdir(cwd)
 
 
-    def create_binding_motif(self, solvate=False, counterion="Cl-", nmol=1, translate=[0.0, 0.0, 0.0]):
+    def create_binding_motif(self, solvate=False, counter_anion="Cl-", counter_cation="Na+", nmol=1, translate=[0.0, 0.0, 0.0]):
         '''
         Create a binding motif with the following structure: tail-core-tail
 
@@ -203,36 +198,22 @@ class binding_molecule:
         os.chdir(self.work_path)
 
         # create a smile string for the binding motif by rdkit reaction
-        rxn = rdChemReactions.ReactionFromSmarts("[*:1][I:2].[I:3][*:4]>>[*:1][*:4]")
-        B = AllChem.MolFromSmiles(self.core_smiles.replace("*", "I"))
-        C = AllChem.MolFromSmiles(self.tail_smiles.replace("*", "I"))
-        # Reaction takes two steps:
-        # (1) B(core) + C(tail) -> BC, since B has two I groups, there will be two possible but equivalent products.
-        # (2) BC + C -> CBC, only one possible product
-        ## reaction (1):
-        reacts = (B, C)
-        products = rxn.RunReactants(reacts)
-        print(len(products))    # output will be 2, since there will be two possible but equivalent products
-        BC = products[0][0]   # chose the first possible product (it does not make a different if we chose the second one by prod1 = products_1[1][0]
-        AllChem.SanitizeMol(BC)
-        ## reaction (2):
-        reacts = (BC, C)
-        products = rxn.RunReactants(reacts)
-        print(len(products))    # output will be 1, only one possible product
-        CBC = products[0][0]
-        AllChem.SanitizeMol(CBC)
-        self.motif_smiles = AllChem.MolToSmiles(CBC, canonical=False).replace('-','')
+        B = AllChem.MolFromSmiles(util.replace_dummy(self.core_smiles, ["K", "I"]))
+        Ca = AllChem.MolFromSmiles(util.replace_dummy(self.tail_smiles, ["K"]))
+        Cb = AllChem.MolFromSmiles(util.replace_dummy(self.tail_smiles, ["I"]))
+        prod = self._reaction([Ca, B, Cb])
+        self.motif_smiles = AllChem.MolToSmiles(prod)
         img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.motif_smiles),],
                                     molsPerRow=1, subImgSize=(1200, 800), useSVG=True)
         with open("motif.svg", "w") as svg:
-            svg.write(img)
+            if isinstance(img, str):
+                svg.write(img)
+            else:
+                svg.write(img.data)
 
-
-        # check if residues are already prepared, if not, prepare them.
-        if not self.check_amber_residues("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge):
-            self.prepare_amber_residue("COR", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
-        if not self.check_amber_residues(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge):
-            self.prepare_amber_residue(["TLA", "TLB"], self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
+        # prepare residues
+        self._prepare_amber_residue("core", self.core_smiles, self.core_dummy_replacement, self.core_num_confs_for_charge)
+        self._prepare_amber_residue("tail", self.tail_smiles, self.tail_dummy_replacement, self.tail_num_confs_for_charge)
 
         # combine residues
         if nmol == 1:
@@ -242,11 +223,12 @@ class binding_molecule:
         with open("tleap_motif%s.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_motif%s.log\n" % appendix)
-            f.write("loadamberprep COR/molecule.prepi\n")
-            f.write("loadamberprep TLA_TLB/molecule_head.prepi\n")
-            f.write("loadamberprep TLA_TLB/molecule_tail.prepi\n")
+            f.write("loadamberprep core/molecule_head.prepi\n")
+            f.write("loadamberprep core/molecule_tail.prepi\n")
+            f.write("loadamberprep tail/molecule_head.prepi\n")
+            f.write("loadamberprep tail/molecule_tail.prepi\n")
             for i in range(nmol):
-                f.write("mol%d = sequence {TLA COR TLB}\n" % i)
+                f.write("mol%d = sequence {TLA CRA TLB}\n" % i)
                 f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
             f.write("mol_comb = combine {")
             for i in range(nmol):
@@ -260,8 +242,12 @@ class binding_molecule:
                 f.write("source leaprc.water.tip3p\n")
                 f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.motif_smiles))    # formal charge
-                if fc != 0:
-                    f.write("addIons2 complex %s 0\n" % counterion)
+                if fc > 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                elif fc < 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_cation)
                 f.write("savepdb mol_comb motif%s_solv.pdb\n" % appendix)
                 f.write("saveamberparm mol_comb motif%s_solv.prmtop motif%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
@@ -274,87 +260,6 @@ class binding_molecule:
         self.motif_charge = util.read_mol2_charge(self.motif_mol2)
 
         os.chdir(cwd)
-
-
-    def check_amber_residues(self, resname, smiles, dummy_replacement, num_confs_for_charge):
-        '''
-        Check if the amber residue is created.
-        '''
-        if smiles.count("*") == 2 and isinstance(resname, str):
-            res_path = resname
-        elif smiles.count("*") == 1 and isinstance(resname, list) and len(resname) == 2:
-            res_path = "%s_%s" % (resname[0], resname[1])
-        else:
-            raise RuntimeError("invalid input parameters")
-        res_path = os.path.join(self.work_path, res_path)
-
-        try:
-            with open(os.path.join(res_path, "smiles.txt"), "r") as f:
-                s = f.readline().strip('\n')
-                if s != smiles:
-                    return False
-                dummy = f.readline().strip('\n')[2]
-                if dummy != dummy_replacement:
-                    return False
-            if smiles.count("*") == 2:
-                with open(os.path.join(res_path, "molecule.prepi"), "r") as f:
-                    for i, line in enumerate(f):
-                        if i == 4:
-                            if line.split()[0] != resname:
-                                return False
-            elif smiles.count("*") == 1:
-                with open(os.path.join(res_path, "molecule_head.prepi"), "r") as f:
-                    for i, line in enumerate(f):
-                        if i == 4:
-                            if line.split()[0] != resname[0]:
-                                return False
-                with open(os.path.join(res_path, "molecule_tail.prepi"), "r") as f:
-                    for i, line in enumerate(f):
-                        if i == 4:
-                            if line.split()[0] != resname[1]:
-                                return False
-            for i in range(num_confs_for_charge):
-                with open(os.path.join(res_path, "amber_charge", "confId%i.mol2" % i), "r") as f:
-                    lines = f.readlines()
-                    if len(lines) == 0:
-                        return False
-        except:
-            return False
-        return True
-
-
-    def prepare_all_residues(self):
-        self.prepare_amber_residue("COR", self.core_smiles, self.core_num_confs_for_charge)
-        self.prepare_amber_residue(["TLA", "TLB"], self.tail_smiles, self.tail_num_confs_for_charge)
-        self.prepare_amber_residue("BRD", self.bridge_smiles, self.bridge_num_confs_for_charge)
-
-
-    def prepare_amber_residue(self, resname, smiles, dummy_replacement, num_confs, only_head=True):
-        '''
-        resname: three letter residue name.
-                 If the residue contains only one dummy atom (which can "react" with dummy atoms in other residues), then
-                 it should be a list of two residue name, for the residue to appear at the head and tail of a chain.
-        smiles: SMILES string, with one or two dummy atom (*)
-        dummy_replacement: when generate the residue, replace all dummy atoms with an atom given by dummy_replacement
-                           this replacement atom should be chosen careful to reflect the chemical environment after new bond formation
-        num_confs: number of conformers for charge calculation
-        only_head: if the residue contains only one dummy atom (which can "react" with dummy atoms in other residues), then
-                   True means the dummy atom is head atom (define by HEAD_NAME in amber main chain file) and connects to the previous residue;
-                   False means the dummy atom is tail atom (define by TAIL_NAME in amber main chain file) and connects to the next residue;
-        '''
-        res = gaff2.residue(charge_method=self.charge_method)
-        res.set_dummy_replacement(dummy_replacement)
-        res.set_smiles(smiles)
-        res.set_num_confs(num_confs)
-
-        if smiles.count("*") == 2 and isinstance(resname, str):
-            res.set_resname(resname)
-            res.set_work_path(resname)
-        elif smiles.count("*") == 1 and isinstance(resname, list) and len(resname) == 2:
-            res.set_resname_head(resname[0])
-            res.set_resname_tail(resname[1])
-            res.set_work_path("%s_%s" % (resname[0], resname[1]))
-        res.run()
 
 
     def write_ditopic_molecule_charge_file(self, file_name):
@@ -387,6 +292,74 @@ class binding_molecule:
                     f.write("\n")
         file_abspath = os.path.join(os.path.abspath(os.getcwd()), file_name)
         return file_abspath
+
+
+    def _prepare_amber_residue(self, restype, smiles, dummy_replacement, num_confs):
+        '''
+        restype: residue type, choose from ["tail", "core", "bridge"]
+        smiles: SMILES string, with one or two dummy atom (*)
+        dummy_replacement: when generate the residue, replace all dummy atoms with an atom given by dummy_replacement
+                           this replacement atom should be chosen careful to reflect the chemical environment after new bond formation
+        num_confs: number of conformers for charge calculation
+        '''
+        res = gaff2.residue(charge_method=self.charge_method)
+        res.set_restype(restype)
+        res.set_smiles(smiles)
+        res.set_dummy_replacement(dummy_replacement)
+        res.set_num_confs(num_confs)
+        res.set_work_path(restype)
+        res.set_database()
+        res.run()
+
+
+    def _check_smiles(self, smiles):
+        num_dummy = smiles.count("*")
+        if num_dummy == 0:
+            raise RuntimeError("Need dummy atoms to perform reaction.")
+        elif num_dummy == 1:
+            if smiles.find("[1*]") == -1:
+                raise RuntimeError("Dummy atom should be label as \"[1*]\".")
+        elif num_dummy == 2:
+            if smiles.find("[1*]") == -1 or smiles.find("[2*]") == -1:
+                raise RuntimeError("Dummy atom should be label as \"[1*]\" (as head dummy atom) and \"[2*]\" (as tail dummy atom).")
+        else:
+            raise RuntimeError("Too many dummy atoms. Should be less than three.")
+
+
+    def _replaceDummy(self, smiles, new=None):
+        if new is None:
+            return smiles
+        else:
+            if smiles.count("*") == 1:
+                return smiles.replace("*", new[0])
+            elif smiles.count("*") == 2:
+                loc = smiles.find("[1*]")
+                smiles = smiles[:loc+2] + new[0] + smiles[loc+3:]
+                loc = smiles.find("[2*]")
+                smiles = smiles[:loc+2] + new[1] + smiles[loc+3:]
+                return smiles
+
+
+    def _reaction(self, reactants):
+        '''
+        Carry out the following reaction and return the final product (Z):
+        reactants[0] + reactants[1] -> A + reactants[2] -> B + ... -> Y + reactants[-1] -> Z
+        
+        reactants: a list of rdkit molecule, each should have a K and I atom representing the head and tail dummy atoms.
+        '''
+        ### define reaction
+        ### K is used as the tail dummy atom in the head molecule, I is used as the head dummy atom in the tail molecule
+        rxn = rdChemReactions.ReactionFromSmarts("[C,O,N:1][K:2].[I:3][C,O,N:4]>>[C,O,N:1][C,O,N:4]")
+        prod = reactants[0]
+        if len(reactants) >= 2:
+            for i in range(len(reactants)-1):
+                reacts = (prod, reactants[i+1])
+                products = rxn.RunReactants(reacts)
+                prod = products[0][0]
+                AllChem.SanitizeMol(prod)
+        else:
+            raise RuntimeError("Not enough reactants.")
+        return prod
 
 
 class complex():
@@ -423,14 +396,14 @@ class complex():
             shutil.rmtree(self.work_path)
 
 
-    def create_receptor_motif_complex(self, n_motif, dock_pose_id, solvate=False, counterion="Cl-"):
+    def create_receptor_motif_complex(self, n_motif, dock_pose_id, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
         os.chdir(self.work_path)
 
         ligands = self.dock.ligand_mol(n_ligand=n_motif, pose_id=dock_pose_id)
-        core = AllChem.MolFromSmiles(self.binding_molecule.core_smiles.replace("*", ""))
+        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["", ""], replace_mass_label=True))
         motifs = []
         expanded_cores = []
         for i in range(n_motif):
@@ -457,11 +430,12 @@ class complex():
             f.write("logfile motif_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
 
-            f.write("loadamberprep %s/COR/molecule.prepi\n" % self.binding_molecule.work_path)
-            f.write("loadamberprep %s/TLA_TLB/molecule_head.prepi\n" % self.binding_molecule.work_path)
-            f.write("loadamberprep %s/TLA_TLB/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/tail/molecule_tail.prepi\n" % self.binding_molecule.work_path)
             for i in range(n_motif):
-                f.write("motif%d = sequence {TLA COR TLB}\n" % i)
+                f.write("motif%d = sequence {TLA CRA TLB}\n" % i)
                 f.write("motif%d = loadpdb motif%d_nobond.pdb\n" % (i, i))
             f.write("\n")
 
@@ -483,8 +457,12 @@ class complex():
             if solvate:
                 f.write("loadoff solvents.lib\n")
                 f.write("solvateOct complex TIP3PBOX 14.0\n")
-                if fc != 0:
-                    f.write("addIons2 complex %s 0\n" % counterion)
+                if fc > 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                elif fc < 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_cation)
                 f.write("saveamberparm complex motif_complex_solv.prmtop motif_complex_solv.rst7\n")
                 f.write("savepdb complex motif_complex_solv.pdb\n\n")
 
@@ -495,14 +473,14 @@ class complex():
 
         os.chdir(cwd)
 
-    def create_receptor_ditopic_complex(self, solvate=False, counterion="Cl-"):
+    def create_receptor_ditopic_complex(self, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
         os.chdir(self.work_path)
 
         ligands = self.dock.ligand_mol(n_ligand=2, pose_id=0)
-        core = AllChem.MolFromSmiles(self.binding_molecule.core_smiles.replace("*", ""))
+        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["", ""], replace_mass_label=True))
         expanded_core = util.expand_substructure(ligands[0], core, expand_iteration=1)
         ditopic_template = AllChem.MolFromSmiles(self.binding_molecule.ditopic_smiles)
         ditopic = AllChem.MolFromPDBFile(self.binding_molecule.ditopic_pdb, removeHs=False)
@@ -534,11 +512,13 @@ class complex():
             f.write("logfile ditopic_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
 
-            f.write("loadamberprep %s/COR/molecule.prepi\n" % self.binding_molecule.work_path)
-            f.write("loadamberprep %s/TLA_TLB/molecule_head.prepi\n" % self.binding_molecule.work_path)
-            f.write("loadamberprep %s/TLA_TLB/molecule_tail.prepi\n" % self.binding_molecule.work_path)
-            f.write("loadamberprep %s/BRD/molecule.prepi\n" % self.binding_molecule.work_path)
-            f.write("ditopic = sequence {TLA COR BRD COR TLB}\n")
+            f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/tail/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/bridge/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/bridge/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("ditopic = sequence {TLA CRA BRD CRB TLB}\n")
             f.write("ditopic = loadpdb ditopic_nobond.pdb\n")
             f.write("receptor0 = loadPDB receptor0_nobond.pdb\n")
             f.write("bond receptor0.1.C4 receptor0.8.O1\n\n")
@@ -558,8 +538,12 @@ class complex():
             if solvate:
                 f.write("loadoff solvents.lib\n")
                 f.write("solvateOct complex TIP3PBOX 14.0\n")
-                if fc != 0:
-                    f.write("addIons2 complex %s 0\n" % counterion)
+                if fc > 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                elif fc < 0:
+                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("addIons2 complex %s 0\n" % counter_cation)
                 f.write("saveamberparm complex ditopic_complex_solv.prmtop ditopic_complex_solv.rst7\n")
                 f.write("savepdb complex ditopic_complex_solv.pdb\n\n")
 

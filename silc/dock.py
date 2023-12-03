@@ -78,23 +78,21 @@ class dock:
 
         Return nothing.
         '''
+        receptor_block = AllChem.MolToMolBlock(self.receptor)
+        viewer = py3Dmol.view(width=500, height=500)
+        viewer.addModel(receptor_block, 'mol')
+        viewer.setStyle({'model':-1,}, {'stick': {'color':'red'}})
+
         pdbqt_mol = meeko.PDBQTMolecule(self.result_pdbqt[n_ligand])
         mol = meeko.RDKitMolCreate.from_pdbqt_mol(pdbqt_mol)
-
         if n_ligand == 1:
-            ligand = AllChem.Mol(mol, confId=pose_id)
-            complex = AllChem.CombineMols(self.receptor, ligand)
-        else:
-            ligand = AllChem.Mol(mol[0], confId=pose_id)
-            complex = AllChem.CombineMols(self.receptor, ligand)
-            for i in range(1,len(mol)):
-                ligand = AllChem.Mol(mol[i], confId=pose_id)
-                complex = AllChem.CombineMols(complex, ligand)
-        complex_block = AllChem.MolToMolBlock(complex)
+            mol = [mol]
+        for i in range(len(mol)):
+            ligand = AllChem.Mol(mol[i], confId=pose_id)
+            ligand_block = AllChem.MolToMolBlock(ligand)
+            viewer.addModel(ligand_block, 'mol')
+            viewer.setStyle({'model':-1,}, {'stick': {'color':'green'}})
 
-        viewer = py3Dmol.view(width=500, height=500)
-        viewer.addModel(complex_block, 'mol')
-        viewer.setStyle({'stick': {}})
         viewer.zoomTo()
         viewer.show()
 

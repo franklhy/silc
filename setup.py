@@ -12,16 +12,9 @@ setup(
         'openmm'
     ],
     #package_data={'silc': ['data/receptor/*', 'data/tutorial/*']}
-    package_data={'silc': [
-                      'data/receptor/*',
-                      'data/tutorial/amber_charge/*',
-                      'data/tutorial/build_molecules/*',
-                      'data/tutorial/build_molecules/BRD/*',
-                      'data/tutorial/build_molecules/BRD/amber_charge/*',
-                      'data/tutorial/build_molecules/COR/*',
-                      'data/tutorial/build_molecules/COR/amber_charge/*',
-                      'data/tutorial/build_molecules/TLA_TLB/*',
-                      'data/tutorial/build_molecules/TLA_TLB/amber_charge/*',
-                      'data/tutorial/docking/*',
-                      ]}
+    package_data={'silc': ['data/*/**',]}
+#                      'data/receptor/*/**',
+#                      'data/tutorial/*/**',
+#                      'data/residue/*/**',
+#                      ]}
 )

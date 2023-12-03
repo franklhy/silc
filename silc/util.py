@@ -335,3 +335,38 @@ def read_amber_mol2(mol2file):
     newblock = "".join(block_list)
     mol = AllChem.MolFromMol2Block(newblock, removeHs=False)
     return mol
+
+
+def replace_dummy(smiles, new=None, replace_mass_label=False):
+    '''
+    Replace dummmy atoms in smiles. At most two dummy atoms allowed in a smiles string.
+    Dummy atoms should be denoted as "[1*]" and "[2*]".
+    new should either be None (no change) or a list of character (including the empty one: "") with the same number of dummy atoms.
+    '''
+    if smiles.count("*") > 3:
+            raise RuntimeError("Too many dummy atoms. Should be less than 3.")
+    if new is None:
+        return smiles
+    elif not replace_mass_label:
+        if smiles.count("*") == 1:
+            return smiles.replace("*", new[0])
+        elif smiles.count("*") == 2:
+            loc = smiles.find("[1*]")
+            smiles = smiles[:loc+2] + new[0] + smiles[loc+3:]
+            loc = smiles.find("[2*]")
+            smiles = smiles[:loc+2] + new[1] + smiles[loc+3:]
+            return smiles
+    elif replace_mass_label:
+        if smiles.count("*") == 1:
+            loc = smiles.find("[1*]")
+            smiles = smiles[:loc] + new[0] + smiles[loc+4:]
+            return smiles
+        elif smiles.count("*") == 2:
+            ### replace the first dummy atom
+            loc = smiles.find("[1*]")
+            smiles = smiles[:loc] + new[0] + smiles[loc+4:]
+            ### replace the second dummy atom
+            loc = smiles.find("[2*]")
+            smiles = smiles[:loc] + new[1] + smiles[loc+4:]
+            return smiles
+        
