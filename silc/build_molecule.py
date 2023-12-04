@@ -164,7 +164,7 @@ class binding_molecule:
             f.write("saveamberparm mol_comb ditopic%s.prmtop ditopic%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
+                f.write("solvateBox mol_comb TIP3PBOX 14.0\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.ditopic_smiles))    # formal charge
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
@@ -244,7 +244,7 @@ class binding_molecule:
             f.write("saveamberparm mol_comb motif%s.prmtop motif%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
+                f.write("solvateBox mol_comb TIP3PBOX 14.0\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.motif_smiles))    # formal charge
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
@@ -463,7 +463,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateOct complex TIP3PBOX 14.0\n")
+                f.write("solvateBox complex TIP3PBOX 14.0\n")
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
@@ -547,7 +547,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateOct complex TIP3PBOX 14.0\n")
+                f.write("solvateBox complex TIP3PBOX 14.0\n")
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
