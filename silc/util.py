@@ -369,4 +369,28 @@ def replace_dummy(smiles, new=None, replace_mass_label=False):
             loc = smiles.find("[2*]")
             smiles = smiles[:loc] + new[1] + smiles[loc+4:]
             return smiles
-        
+
+
+def check_leap_log(leap_log):
+    '''
+    Check the status of amber LEaP run
+    
+    Return: A list of [total number of errors, total number of warnings, total number of notes].
+    '''
+    head = "Exiting LEaP:"
+    status = []
+    with open(leap_log, "r") as f:
+        for line in f:
+            if line.startswith(head):
+                part = line[len(head):]
+                part = part.replace('.', ';')
+                w = part.split(';')
+                num_error = int(w[0].split()[2])
+                num_warning = int(w[1].split()[2])
+                num_note = int(w[2].split()[2])
+                status.append([num_error, num_warning, num_note])
+    total = [0, 0, 0]
+    for s in status:
+        for i in range(3):
+            total[i] += s[i]
+    return total

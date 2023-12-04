@@ -18,6 +18,7 @@ class dock:
         self.receptor_pdb = None
         self.receptor = None
         self.ligand = None
+        self.work_path = None
         self.result_pdbqt = {} # result pdbqt of n_ligand
         self.result_file = {} # result file of n_ligand
 
@@ -45,6 +46,14 @@ class dock:
         return files("silc.data.receptor").joinpath("%s.pdb" % self.receptor_name).is_file()
 
 
+    def set_work_path(self, work_path="docking"):
+        work_path = str(work_path)
+        if work_path[0] == '/' or work_path == '~':
+            self.work_path = work_path
+        else:
+            self.work_path = os.path.join(os.path.abspath(os.getcwd()), work_path)
+
+
     def prepare_ligand_from_smiles(self, smiles):
         '''
         Use meeko to prepare ligand
@@ -59,6 +68,11 @@ class dock:
         '''
         run docking
         '''
+        cwd = os.getcwd()
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
+        os.chdir(self.work_path)
+
         self.v.set_ligand_from_string([self.ligand_pdbqt] * n_ligand)
         self.v.dock(exhaustiveness=exhaustiveness, n_poses=n_poses)
 
@@ -67,6 +81,8 @@ class dock:
         self.v.write_poses("%s.pdbqt" % save_name, n_poses=n_poses, overwrite=True)
         self.result_file[n_ligand] = "%s.pdbqt" % save_name
         self.result_pdbqt[n_ligand] = self.v.poses(n_poses=n_poses)
+
+        os.chdir(cwd)
 
 
     def visualize(self, n_ligand, pose_id):

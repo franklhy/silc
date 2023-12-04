@@ -118,10 +118,11 @@ class binding_molecule:
 
         # create a smile string for the ditopic molecule by rdkit reaction
         A = AllChem.MolFromSmiles(util.replace_dummy(self.bridge_smiles, ["K", "I"]))
-        B = AllChem.MolFromSmiles(util.replace_dummy(self.core_smiles, ["K", "I"]))
+        Ba = AllChem.MolFromSmiles(util.replace_dummy(self.core_smiles, ["I", "K"]))
+        Bb = AllChem.MolFromSmiles(util.replace_dummy(self.core_smiles, ["K", "I"]))
         Ca = AllChem.MolFromSmiles(util.replace_dummy(self.tail_smiles, ["K"]))
         Cb = AllChem.MolFromSmiles(util.replace_dummy(self.tail_smiles, ["I"]))
-        prod = self._reaction([Ca, B, A, B, Cb])
+        prod = self._reaction([Ca, Ba, A, Bb, Cb])
         self.ditopic_smiles = AllChem.MolToSmiles(prod)
         img = Draw.MolsToGridImage([AllChem.MolFromSmiles(self.ditopic_smiles),],
                                     molsPerRow=1, subImgSize=(1200, 800), useSVG=True)
@@ -166,17 +167,20 @@ class binding_molecule:
                 f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.ditopic_smiles))    # formal charge
                 if fc > 0:
-                    f.write("loadOff atomic_ions.lib\n")
-                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                    f.write("source leaprc.water.tip3p\n")
+                    f.write("addIons2 mol_comb %s 0\n" % counter_anion)
                 elif fc < 0:
-                    f.write("loadOff atomic_ions.lib\n")
-                    f.write("addIons2 complex %s 0\n" % counter_cation)
+                    f.write("source leaprc.water.tip3p\n")
+                    f.write("addIons2 mol_comb %s 0\n" % counter_cation)
                 f.write("savepdb mol_comb ditopic%s_solv.pdb\n" % appendix)
                 f.write("saveamberparm mol_comb ditopic%s_solv.prmtop ditopic%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
         result = subprocess.run(["tleap", "-f", "tleap_ditopic%s.in" % appendix])
         if result.returncode != 0:
             raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_ditopic%s.log" % appendix)
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         self.ditopic_pdb = os.path.join(os.path.abspath(os.getcwd()), "ditopic.pdb")
         self.ditopic_mol2 = os.path.join(os.path.abspath(os.getcwd()), "ditopic.mol2")
@@ -243,17 +247,20 @@ class binding_molecule:
                 f.write("solvateOct mol_comb TIP3PBOX 14.0\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.motif_smiles))    # formal charge
                 if fc > 0:
-                    f.write("loadOff atomic_ions.lib\n")
-                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                    f.write("source leaprc.water.tip3p\n")
+                    f.write("addIons2 mol_comb %s 0\n" % counter_anion)
                 elif fc < 0:
-                    f.write("loadOff atomic_ions.lib\n")
-                    f.write("addIons2 complex %s 0\n" % counter_cation)
+                    f.write("source leaprc.water.tip3p\n")
+                    f.write("addIons2 mol_comb %s 0\n" % counter_cation)
                 f.write("savepdb mol_comb motif%s_solv.pdb\n" % appendix)
                 f.write("saveamberparm mol_comb motif%s_solv.prmtop motif%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
         result = subprocess.run(["tleap", "-f", "tleap_motif%s.in" % appendix])
         if result.returncode != 0:
             raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_motif%s.log" % appendix)
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         self.motif_pdb = os.path.join(os.path.abspath(os.getcwd()), "motif.pdb")
         self.motif_mol2 = os.path.join(os.path.abspath(os.getcwd()), "motif.mol2")
@@ -422,12 +429,12 @@ class complex():
             util.save_pdb(motifs[i], "motif%d_nobond.pdb" % i, bond=False)
             self.binding_molecule.write_binding_motif_charge_file("motif%d_charge.txt" % i)
             fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.binding_molecule.motif_smiles))    # formal charge
-            subprocess.run(["antechamber", "-i", "motif%d_nobond.pdb" % i, "-fi", "pdb", "-o", "motif%d.mol2" % i, "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "motif%d_charge.txt" % i, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
-            subprocess.run(["parmchk2", "-i", "motif%d.mol2" % i, "-f", "mol2", "-o", "motif%d.frcmod" % i, "-s", "gaff2"])
+            #subprocess.run(["antechamber", "-i", "motif%d_nobond.pdb" % i, "-fi", "pdb", "-o", "motif%d.mol2" % i, "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "motif%d_charge.txt" % i, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            #subprocess.run(["parmchk2", "-i", "motif%d.mol2" % i, "-f", "mol2", "-o", "motif%d.frcmod" % i, "-s", "gaff2"])
 
         with open("tleap_motif_complex.in", "w") as f:
             f.write("source leaprc.gaff2\n")
-            f.write("logfile motif_complex.log\n")
+            f.write("logfile leap_motif_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
 
             f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
@@ -458,10 +465,10 @@ class complex():
                 f.write("loadoff solvents.lib\n")
                 f.write("solvateOct complex TIP3PBOX 14.0\n")
                 if fc > 0:
-                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
                 elif fc < 0:
-                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_cation)
                 f.write("saveamberparm complex motif_complex_solv.prmtop motif_complex_solv.rst7\n")
                 f.write("savepdb complex motif_complex_solv.pdb\n\n")
@@ -470,6 +477,9 @@ class complex():
         result = subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_motif_complex.in"])
         if result.returncode != 0:
             raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_motif_complex.log")
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         os.chdir(cwd)
 
@@ -479,7 +489,7 @@ class complex():
             os.makedirs(self.work_path)
         os.chdir(self.work_path)
 
-        ligands = self.dock.ligand_mol(n_ligand=2, pose_id=0)
+        ligands = self.dock.ligand_mol(n_ligand=2, pose_id=0)   
         core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["", ""], replace_mass_label=True))
         expanded_core = util.expand_substructure(ligands[0], core, expand_iteration=1)
         ditopic_template = AllChem.MolFromSmiles(self.binding_molecule.ditopic_smiles)
@@ -504,12 +514,12 @@ class complex():
         util.save_pdb(receptor1, "receptor1_nobond.pdb", bond=False)
         self.binding_molecule.write_binding_motif_charge_file("ditopic_charge.txt")
         fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.binding_molecule.motif_smiles))    # formal charge
-        subprocess.run(["antechamber", "-i", "ditopic_nobond.pdb", "-fi", "pdb", "-o", "ditopic.mol2", "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "ditopic_charge.txt", "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
-        subprocess.run(["parmchk2", "-i", "ditopic.mol2", "-f", "mol2", "-o", "ditopic.frcmod", "-s", "gaff2"])
+        #subprocess.run(["antechamber", "-i", "ditopic_nobond.pdb", "-fi", "pdb", "-o", "ditopic.mol2", "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "ditopic_charge.txt", "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+        #subprocess.run(["parmchk2", "-i", "ditopic.mol2", "-f", "mol2", "-o", "ditopic.frcmod", "-s", "gaff2"])
 
         with open("tleap_ditopic_complex.in", "w") as f:
             f.write("source leaprc.gaff2\n")
-            f.write("logfile ditopic_complex.log\n")
+            f.write("logfile leap_ditopic_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
 
             f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
@@ -539,10 +549,10 @@ class complex():
                 f.write("loadoff solvents.lib\n")
                 f.write("solvateOct complex TIP3PBOX 14.0\n")
                 if fc > 0:
-                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
                 elif fc < 0:
-                    f.write("loadOff atomic_ions.lib\n")
+                    f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_cation)
                 f.write("saveamberparm complex ditopic_complex_solv.prmtop ditopic_complex_solv.rst7\n")
                 f.write("savepdb complex ditopic_complex_solv.pdb\n\n")
@@ -551,5 +561,8 @@ class complex():
         result = subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_ditopic_complex.in"])
         if result.returncode != 0:
             raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_ditopic_complex.log")
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         os.chdir(cwd)
