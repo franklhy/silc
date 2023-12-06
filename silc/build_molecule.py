@@ -333,26 +333,14 @@ class binding_molecule:
             raise RuntimeError("Too many dummy atoms. Should be less than three.")
 
 
-    def _replaceDummy(self, smiles, new=None):
-        if new is None:
-            return smiles
-        else:
-            if smiles.count("*") == 1:
-                return smiles.replace("*", new[0])
-            elif smiles.count("*") == 2:
-                loc = smiles.find("[1*]")
-                smiles = smiles[:loc+2] + new[0] + smiles[loc+3:]
-                loc = smiles.find("[2*]")
-                smiles = smiles[:loc+2] + new[1] + smiles[loc+3:]
-                return smiles
-
-
     def _reaction(self, reactants):
         '''
         Carry out the following reaction and return the final product (Z):
         reactants[0] + reactants[1] -> A + reactants[2] -> B + ... -> Y + reactants[-1] -> Z
         
-        reactants: a list of rdkit molecule, each should have a K and I atom representing the head and tail dummy atoms.
+        reactants: A list of rdkit molecule, each should have a [1K] and [2I] atom representing the head and tail dummy atoms.
+                   For the first reactant, it should have a [2I] atom as the tail dummy atom.
+                   For the last reactant, it should have a [1K] atom as the head dummy atom.
         '''
         ### define reaction
         ### K is used as the tail dummy atom in the head molecule, I is used as the head dummy atom in the tail molecule
