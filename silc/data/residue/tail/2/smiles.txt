@@ -1,0 +1,2 @@
+[1*]COCCOCCOCC=C
+[1*]:C

@@ -18,6 +18,7 @@ class dock:
         self.receptor_pdb = None
         self.receptor = None
         self.ligand = None
+        self.work_path = None
         self.result_pdbqt = {} # result pdbqt of n_ligand
         self.result_file = {} # result file of n_ligand
 
@@ -32,7 +33,7 @@ class dock:
             self.receptor_pdb = os.path.join(self.receptor_pdb_path, "%s.pdb" % self.receptor_name)
         else:
             raise RuntimeError("Cannot find receptor.")
-        self.receptor = AllChem.MolFromPDBFile(self.receptor_pdb)
+        self.receptor = AllChem.MolFromPDBFile(self.receptor_pdb, removeHs=False)
 
         ### load affinity precalculated affinity map
         if self.use_receptor_database:
@@ -43,6 +44,14 @@ class dock:
 
     def _find_receptor(self, receptor_name):
         return files("silc.data.receptor").joinpath("%s.pdb" % self.receptor_name).is_file()
+
+
+    def set_work_path(self, work_path="docking"):
+        work_path = str(work_path)
+        if work_path[0] == '/' or work_path == '~':
+            self.work_path = work_path
+        else:
+            self.work_path = os.path.join(os.path.abspath(os.getcwd()), work_path)
 
 
     def prepare_ligand_from_smiles(self, smiles):
@@ -59,6 +68,11 @@ class dock:
         '''
         run docking
         '''
+        cwd = os.getcwd()
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
+        os.chdir(self.work_path)
+
         self.v.set_ligand_from_string([self.ligand_pdbqt] * n_ligand)
         self.v.dock(exhaustiveness=exhaustiveness, n_poses=n_poses)
 
@@ -67,6 +81,8 @@ class dock:
         self.v.write_poses("%s.pdbqt" % save_name, n_poses=n_poses, overwrite=True)
         self.result_file[n_ligand] = "%s.pdbqt" % save_name
         self.result_pdbqt[n_ligand] = self.v.poses(n_poses=n_poses)
+
+        os.chdir(cwd)
 
 
     def visualize(self, n_ligand, pose_id):
@@ -78,23 +94,21 @@ class dock:
 
         Return nothing.
         '''
+        receptor_block = AllChem.MolToMolBlock(self.receptor)
+        viewer = py3Dmol.view(width=500, height=500)
+        viewer.addModel(receptor_block, 'mol')
+        viewer.setStyle({'model':-1,}, {'stick': {'color':'red'}})
+
         pdbqt_mol = meeko.PDBQTMolecule(self.result_pdbqt[n_ligand])
         mol = meeko.RDKitMolCreate.from_pdbqt_mol(pdbqt_mol)
-
         if n_ligand == 1:
-            ligand = AllChem.Mol(mol, confId=pose_id)
-            complex = AllChem.CombineMols(self.receptor, ligand)
-        else:
-            ligand = AllChem.Mol(mol[0], confId=pose_id)
-            complex = AllChem.CombineMols(self.receptor, ligand)
-            for i in range(1,len(mol)):
-                ligand = AllChem.Mol(mol[i], confId=pose_id)
-                complex = AllChem.CombineMols(complex, ligand)
-        complex_block = AllChem.MolToMolBlock(complex)
+            mol = [mol]
+        for i in range(len(mol)):
+            ligand = AllChem.Mol(mol[i], confId=pose_id)
+            ligand_block = AllChem.MolToMolBlock(ligand)
+            viewer.addModel(ligand_block, 'mol')
+            viewer.setStyle({'model':-1,}, {'stick': {'color':'green'}})
 
-        viewer = py3Dmol.view(width=500, height=500)
-        viewer.addModel(complex_block, 'mol')
-        viewer.setStyle({'stick': {}})
         viewer.zoomTo()
         viewer.show()
 

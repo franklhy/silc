@@ -30,16 +30,20 @@ def gen_mol_from_pdb_and_smiles(pdb_file, smiles, hydrogen=False):
 
     return rdkit molecule
     '''
-    mol_template = AllChem.MolFromSmiles(smiles)
-    mol = AllChem.MolFromPDBFile(pdb_file)
-    mol = AllChem.AssignBondOrdersFromTemplate(mol_template, mol)
     if hydrogen:
+        mol_template = AllChem.MolFromSmiles(smiles)
+        mol_template = AllChem.AddHs(mol_template)
+        mol = AllChem.MolFromPDBFile(pdb_file, removeHs=False)
+        mol = AllChem.AssignBondOrdersFromTemplate(mol_template, mol)
+        return mol
+    else:
+        mol_template = AllChem.MolFromSmiles(smiles)
+        mol = AllChem.MolFromPDBFile(pdb_file, removeHs=True)
+        mol = AllChem.AssignBondOrdersFromTemplate(mol_template, mol)
         mol_with_hydrogens = AllChem.AddHs(mol)
         mol_with_hydrogens = AllChem.ConstrainedEmbed(mol_with_hydrogens, mol)
         return mol_with_hydrogens
-    else:
-        return mol
-
+        
 
 def gen_mol_from_smiles(smiles, hydrogen=False):
     '''
@@ -121,23 +125,24 @@ def align_to_substructure(mol, core, stretch=False, stretch_ratio_min=0.5, stret
 
     core must have at least one conformer
     '''
-    match = mol.GetSubstructMatch(core)
-    mol = AllChem.ConstrainedEmbed(mol, core, randomseed=123, maxAttempts=100000)
-    mp = AllChem.MMFFGetMoleculeProperties(mol, mmffVariant='MMFF94')
-    ff = AllChem.MMFFGetMoleculeForceField(mol, mp)
+    m = AllChem.Mol(mol)
+    match = m.GetSubstructMatch(core)
+    m = AllChem.ConstrainedEmbed(m, core, randomseed=123, maxAttempts=100000)
+    mp = AllChem.MMFFGetMoleculeProperties(m, mmffVariant='MMFF94')
+    ff = AllChem.MMFFGetMoleculeForceField(m, mp)
 
     if stretch:
         # Find chain end
         chain_end_atom_idx = []
 
         # Iterate through the atoms in the molecule
-        for atom in mol.GetAtoms():
+        for atom in m.GetAtoms():
             # Check if the atom is connected to only one other atom (chain end)
             if atom.GetDegree() == 1:
                 chain_end_atom_idx.append(atom.GetIdx())
 
         # calculate the topological distance matrix, to get the number of bonds between chain ends
-        dm = AllChem.GetDistanceMatrix(mol)
+        dm = AllChem.GetDistanceMatrix(m)
         # for each pair of chain ends, add a distance constrain
         for atomi in chain_end_atom_idx:
             for atomj in chain_end_atom_idx:
@@ -151,7 +156,7 @@ def align_to_substructure(mol, core, stretch=False, stretch_ratio_min=0.5, stret
 
         ff.Minimize(maxIts=10000)
 
-    return mol
+    return m
 
 
 def generate_multiple_conformers(mol, num_confs, prune_rms_thresh=1.0):
@@ -163,10 +168,11 @@ def generate_multiple_conformers(mol, num_confs, prune_rms_thresh=1.0):
     #ps.optimizerForceTol = 0.01
     ps.useRandomCoords = True
     #ps.maxIterations = 1000
-    cids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs, params=ps)    # generate more confs in case some will be pruned
+    m = AllChem.Mol(mol)
+    cids = AllChem.EmbedMultipleConfs(m, numConfs=num_confs, params=ps)    # generate more confs in case some will be pruned
     for cid in cids:
-        AllChem.MMFFOptimizeMolecule(mol, confId=cid)
-    return mol
+        AllChem.MMFFOptimizeMolecule(m, confId=cid)
+    return m
 
 
 def read_conformer_from_pdb(mol, pdb_file):
@@ -225,7 +231,7 @@ def optimize_complex(receptor, ligand_list, ligand_core_list, max_its=10000):
 def set_resname_by_substructure(mol, core, res_name, res_num, res_num_mode='='):
     '''
     Find matching substructure (core) in a given molecule (mol), and rename its residue name to res_name and set new residue number by res_num.
-    
+
     res_name should has two letters, the third letter is save for index (A, B, C, ...) in case there are multiple matched substructure.
     res_name will be converted to uppercase if lowercase is provided
 
@@ -329,3 +335,62 @@ def read_amber_mol2(mol2file):
     newblock = "".join(block_list)
     mol = AllChem.MolFromMol2Block(newblock, removeHs=False)
     return mol
+
+
+def replace_dummy(smiles, new=None, replace_mass_label=False):
+    '''
+    Replace dummmy atoms in smiles. At most two dummy atoms allowed in a smiles string.
+    Dummy atoms should be denoted as "[1*]" and "[2*]".
+    new should either be None (no change) or a list of character (including the empty one: "") with the same number of dummy atoms.
+    '''
+    if smiles.count("*") > 3:
+            raise RuntimeError("Too many dummy atoms. Should be less than 3.")
+    if new is None:
+        return smiles
+    elif not replace_mass_label:
+        if smiles.count("*") == 1:
+            return smiles.replace("*", new[0])
+        elif smiles.count("*") == 2:
+            loc = smiles.find("[1*]")
+            smiles = smiles[:loc+2] + new[0] + smiles[loc+3:]
+            loc = smiles.find("[2*]")
+            smiles = smiles[:loc+2] + new[1] + smiles[loc+3:]
+            return smiles
+    elif replace_mass_label:
+        if smiles.count("*") == 1:
+            loc = smiles.find("[1*]")
+            smiles = smiles[:loc] + new[0] + smiles[loc+4:]
+            return smiles
+        elif smiles.count("*") == 2:
+            ### replace the first dummy atom
+            loc = smiles.find("[1*]")
+            smiles = smiles[:loc] + new[0] + smiles[loc+4:]
+            ### replace the second dummy atom
+            loc = smiles.find("[2*]")
+            smiles = smiles[:loc] + new[1] + smiles[loc+4:]
+            return smiles
+
+
+def check_leap_log(leap_log):
+    '''
+    Check the status of amber LEaP run
+    
+    Return: A list of [total number of errors, total number of warnings, total number of notes].
+    '''
+    head = "Exiting LEaP:"
+    status = []
+    with open(leap_log, "r") as f:
+        for line in f:
+            if line.startswith(head):
+                part = line[len(head):]
+                part = part.replace('.', ';')
+                w = part.split(';')
+                num_error = int(w[0].split()[2])
+                num_warning = int(w[1].split()[2])
+                num_note = int(w[2].split()[2])
+                status.append([num_error, num_warning, num_note])
+    total = [0, 0, 0]
+    for s in status:
+        for i in range(3):
+            total[i] += s[i]
+    return total

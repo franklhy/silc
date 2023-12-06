@@ -1,9 +1,0 @@
-source leaprc.gaff2
-loadamberprep COR/molecule.prepi
-loadamberprep TLA_TLB/molecule_head.prepi
-loadamberprep TLA_TLB/molecule_tail.prepi
-mol = sequence {TLA COR TLB}
-savepdb mol motif.pdb
-savemol2 mol motif.mol2 1
-saveamberparm mol motif.prmtop motif.rst7
-quit
