@@ -122,12 +122,12 @@ else:
     indices_1 = atom_indexes[0]
     indices_2 = atom_indexes[1]
     cv = [Distance([indices_1, indices_2]),]
-    grid = Grid(lower=(0.9,), upper=(3.0,), shape=(32,))
-    cv_restraints = CVRestraints(lower=(0.9,), upper=(3.0,), ku=10, kl=10)
+    grid = Grid(lower=(0.33,), upper=(1.93,), shape=(32,))
+    cv_restraints = CVRestraints(lower=(0.33,), upper=(1.93,), ku=10, kl=10)
     sampling_method = ABF(cv, grid, restraints=cv_restraints)
 
     # Run biased dynamics
-    callback = HistogramLogger("hist", timesteps//10)
+    callback = ABFLogger("logger", period_hist_force=timesteps//10, period_CV=timesteps//100)
     state = pysages.run(sampling_method, generate_simulation, timesteps, callback)
     result = pysages.analyze(state)
     fe = result["free_energy"]
