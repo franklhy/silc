@@ -22,7 +22,8 @@ from pysages.colvars import Distance
 from pysages.methods import ABF, CVRestraints
 
 # silc imports
-from silc.md.logger import HistogramLogger
+from silc.md.logger import ABFLogger
+from silc.md.collective_variables import DistancesSum
 
 
 biased = True
@@ -94,7 +95,6 @@ def generate_simulation(input_files=input_files, T=T, NPT_steps=NPT_steps, minim
     return sim
 
 
-
 if not biased:
     sim = generate_simulation(input_files)
 
@@ -105,13 +105,17 @@ if not biased:
 else:
     # Extract atom indexes from residue names
     sim = generate_simulation(input_files, NPT_steps=0, minimize_steps=0)
-    residue_name = ['CRA', 'CRB']
+    bridge_residue_name = "BRD"
+    core_residue_name = ['CRA', 'CRB']
     residue_indexes = []
     for residue in sim.topology.residues():
-       if residue.name in residue_name:
+       if residue.name == bridge_residue_name:
+           residue_indexes.append(residue.index)
+    for residue in sim.topology.residues():
+       if residue.name in core_residue_name:
            residue_indexes.append(residue.index)
 
-    atom_indexes=[[],[]]
+    atom_indexes=[[],[],[]]
     for atom in sim.topology.atoms():
        if atom.residue.index in residue_indexes:
           i = atom.residue.index
@@ -119,20 +123,20 @@ else:
     print(atom_indexes)
 
     # Define collective variables and sampling methods.
-    indices_1 = atom_indexes[0]
-    indices_2 = atom_indexes[1]
-    cv = [Distance([indices_1, indices_2]),]
-    grid = Grid(lower=(0.33,), upper=(1.93,), shape=(32,))
-    cv_restraints = CVRestraints(lower=(0.33,), upper=(1.93,), ku=10, kl=10)
+    indices_0 = atom_indexes[0]
+    indices_1 = atom_indexes[1]
+    indices_2 = atom_indexes[2]
+    cv = [Distance([indices_1, indices_2]), DistancesSum([indices_0, indices_1, indices_2])]
+    grid = Grid(lower=(0.33, 1.0), upper=(1.93, 4.2), shape=(32, 32))
+    cv_restraints = CVRestraints(lower=(0.33, 1.0), upper=(1.93, 4.2), ku=10, kl=10)
     sampling_method = ABF(cv, grid, restraints=cv_restraints)
 
-    # Run biased dynamics
-    callback = ABFLogger("logger", period_hist_force=timesteps//10, period_CV=timesteps//100)
+    # Run biased dynamics and save results
+    callback = ABFLogger("logger", period_hist_force=timesteps//10, period_cv=timesteps//1000)
     state = pysages.run(sampling_method, generate_simulation, timesteps, callback)
     result = pysages.analyze(state)
-    fe = result["free_energy"]
-    mesh = result["mesh"]
-    hist = result["histogram"]
-    #plt.plot(mesh, fe)
-    #plt.plot(mesh, hist)
-    np.savetxt("fe.txt", np.column_stack((mesh, fe)))
+    energy = np.asarray(result["free_energy"])
+    forces = np.asarray(result["mean_force"])
+    grid = np.asarray(result["mesh"])
+    np.savetxt("FES.txt", np.hstack([grid, energy.reshape(-1, 1)]))
+    np.savetxt("Forces.txt", np.hstack([grid, forces.reshape(-1, grid.shape[1])]))
