@@ -2,6 +2,9 @@
 #from __future__ import division, print_function
 
 import sys
+from pathlib import Path
+
+import dill as pickle
 
 # OpenMM Imports
 #import simtk.openmm as mm
@@ -22,6 +25,9 @@ from pysages.methods import ABF, CVRestraints
 
 biased = False
 timesteps = 10000000
+
+restart = True
+restart_file = Path("state.pickle")
 
 
 input_files = ('../force_field/complex_solv.prmtop', '../force_field/complex_solv.rst7')
@@ -90,7 +96,6 @@ def generate_simulation(input_files, T=T, platform_name="CUDA"):
     return sim
 
 
-
 if not biased:
     # Run NVT dynamics
     print('Running NVT dynamics')
@@ -126,12 +131,23 @@ else:
 
     # Run biased dynamics
 
-    state = pysages.run(sampling_method, generate_simulation, timesteps)
+    if restart and restart_file.is_file():
+        with restart_file.open("rb") as rf:
+            state = pickle.load(rf)
+        state = pysages.run(state, generate_simulation, timesteps)
+    else:
+        state = pysages.run(sampling_method, generate_simulation, timesteps)
+
+    with restart_file.open("wb") as rf:
+        # This overwrites the previous saved state if it exists
+        # TODO: Make it easier to save different states if their running time differs
+        pickle.dump(state, rf)
+
+    # Analyze the results
+
     result = pysages.analyze(state)
     fe = result["free_energy"]
     mesh = result["mesh"]
     hist = result["histogram"]
     # plt.plot(mesh, fe)
     # plt.plot(mesh, hist)
-
-
