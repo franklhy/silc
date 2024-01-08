@@ -2,6 +2,9 @@
 #from __future__ import division, print_function
 
 import sys
+from pathlib import Path
+
+import dill as pickle
 
 import numpy as np
 
@@ -24,6 +27,9 @@ from pysages.methods import ABF, CVRestraints
 # silc imports
 from silc.md.logger import ABFLogger
 from silc.md.collective_variables import DistancesSum
+
+restart = True
+restart_file = Path("state.pickle")
 
 
 biased = True
@@ -133,7 +139,19 @@ else:
 
     # Run biased dynamics and save results
     callback = ABFLogger("logger", period_hist_force=timesteps//10, period_cv=timesteps//1000)
-    state = pysages.run(sampling_method, generate_simulation, timesteps, callback)
+    if restart and restart_file.is_file():
+        with restart_file.open("rb") as rf:
+            state = pickle.load(rf)
+        state = pysages.run(state, generate_simulation, timesteps, callback)
+    else:
+        state = pysages.run(sampling_method, generate_simulation, timesteps, callback)
+
+    with restart_file.open("wb") as rf:
+        # This overwrites the previous saved state if it exists
+        # TODO: Make it easier to save different states if their running time differs
+        pickle.dump(state, rf)
+
+    # Analyze the results
     result = pysages.analyze(state)
     energy = np.asarray(result["free_energy"])
     forces = np.asarray(result["mean_force"])
