@@ -132,12 +132,16 @@ else:
     indices_0 = atom_indexes[0]
     indices_1 = atom_indexes[1]
     indices_2 = atom_indexes[2]
+    # CV1: distance between two cores;
+    # CV2: sum of distances between cores and the bridge
+    # Note that CV2 is always larger than CV1, so the lower limit of CV2 should be larger than the upper limit of CV1,
+    # otherwise part of the 2D sample space will be unphysical and could leads to 'nan' in the final forces and free energy.
     cv = [Distance([indices_1, indices_2]), DistancesSum([indices_0, indices_1, indices_2])]
-    grid = Grid(lower=(0.33, 1.0), upper=(1.93, 4.2), shape=(32, 32))
-    cv_restraints = CVRestraints(lower=(0.33, 1.0), upper=(1.93, 4.2), ku=10, kl=10)
+    grid = Grid(lower=(0.33, 2.5), upper=(1.93, 3.5), shape=(32, 20))
+    cv_restraints = CVRestraints(lower=(0.33, 2.5), upper=(1.93, 3.5), ku=100, kl=100)
     sampling_method = ABF(cv, grid, restraints=cv_restraints)
 
-    # Run biased dynamics and save results
+    # Run biased dynamics
     callback = ABFLogger("logger", period_hist_force=timesteps//10, period_cv=timesteps//1000)
     if restart and restart_file.is_file():
         with restart_file.open("rb") as rf:

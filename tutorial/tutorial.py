@@ -14,7 +14,7 @@ bridge_smiles = lambda nEO: "O=C(O)c1cc(c2ccc(C" + "OCC" * nEO + "[1*])cc2)cc(c2
 bm = binding_molecule()
 bm.set_core_smiles(core_smiles, ["C", "C"])
 bm.set_tail_smiles(tail_smiles(3), ["O"])
-bm.set_bridge_smiles(bridge_smiles(1), ["O", "O"])
+bm.set_bridge_smiles(bridge_smiles(0), ["O", "O"])
 bm.set_core_num_confs_for_charge(5)
 bm.set_tail_num_confs_for_charge(5)
 bm.set_bridge_num_confs_for_charge(5)
