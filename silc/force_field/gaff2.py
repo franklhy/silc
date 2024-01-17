@@ -283,10 +283,12 @@ class residue:
             raise RuntimeError("Please set dummy replacement first using set_dummy_replacement().")
         if isinstance(dummy_replacement, list) and len(dummy_replacement) == self.num_dummy:
             for i in range(len(dummy_replacement)):
-                if len(dummy_replacement[i]) == 1:
+                if len(dummy_replacement[i]) == 1 or dummy_replacement[i] == "[N+]":
                     self.replace_dummy_with.append(dummy_replacement[i])
+                else:
+                    raise RuntimeError("Invalid dummy replacement atom.")
         else:
-            raise RuntimeError("Invalide dummy replacement atom. It should be a list a atom character, with the same number of input dummy atoms.")
+            raise RuntimeError("Invalid dummy replacement atom. It should be a list a atom character, with the same number of input dummy atoms.")
 
         if self.num_dummy == 1:
             self.smiles = self.smiles_with_dummy
