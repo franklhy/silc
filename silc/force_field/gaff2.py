@@ -283,7 +283,7 @@ class residue:
             raise RuntimeError("Please set dummy replacement first using set_dummy_replacement().")
         if isinstance(dummy_replacement, list) and len(dummy_replacement) == self.num_dummy:
             for i in range(len(dummy_replacement)):
-                if len(dummy_replacement[i]) == 1 or dummy_replacement[i] == "[N+]":
+                if len(dummy_replacement[i]) == 1 or dummy_replacement[i] == "[NH3+]":
                     self.replace_dummy_with.append(dummy_replacement[i])
                 else:
                     raise RuntimeError("Invalid dummy replacement atom.")
