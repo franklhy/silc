@@ -109,45 +109,46 @@ if not biased:
     sim.step(timesteps)
     sim.saveState('final.xml')
 else:
-    # Extract atom indexes from residue names
-    sim = generate_simulation(input_files, NPT_steps=0, minimize_steps=0)
-    bridge_residue_name = "BRD"
-    core_residue_name = ['CRA', 'CRB']
-    residue_indexes = []
-    for residue in sim.topology.residues():
-        if residue.name == bridge_residue_name:
-            residue_indexes.append(residue.index)
-    for residue in sim.topology.residues():
-        if residue.name in core_residue_name:
-            residue_indexes.append(residue.index)
-
-    atom_indexes=[[],[],[]]
-    for atom in sim.topology.atoms():
-        if atom.residue.index in residue_indexes:
-            i = atom.residue.index
-            atom_indexes[residue_indexes.index(i)].append(atom.index)
-    print(atom_indexes)
-
-    # Define collective variables and sampling methods.
-    indices_0 = atom_indexes[0]
-    indices_1 = atom_indexes[1]
-    indices_2 = atom_indexes[2]
-    # CV1: distance between two cores;
-    # CV2: sum of distances between cores and the bridge
-    # Note that CV2 is always larger than CV1, so the lower limit of CV2 should be larger than the upper limit of CV1,
-    # otherwise part of the 2D sample space will be unphysical and could leads to 'nan' in the final forces and free energy.
-    cv = [Distance([indices_1, indices_2]), DistancesSum([indices_0, indices_1, indices_2])]
-    grid = Grid(lower=(0.33, 2.5), upper=(1.93, 3.5), shape=(32, 32))
-    cv_restraints = CVRestraints(lower=(0.33, 2.5), upper=(1.93, 3.5), ku=100, kl=100)
-    sampling_method = ABF(cv, grid, restraints=cv_restraints)
-
     # Run biased dynamics
     callback = ABFLogger("logger", period_hist_force=timesteps//10, period_cv=timesteps//1000)
     if restart and restart_file.is_file():
         with restart_file.open("rb") as rf:
             state = pickle.load(rf)
+        NPT_steps = 0
+        minimize_steps = 0
         state = pysages.run(state, generate_simulation, timesteps)
     else:
+        # Extract atom indexes from residue names
+        sim = generate_simulation(input_files, NPT_steps=0, minimize_steps=0)
+        bridge_residue_name = "BRD"
+        core_residue_name = ['CRA', 'CRB']
+        residue_indexes = []
+        for residue in sim.topology.residues():
+            if residue.name == bridge_residue_name:
+                residue_indexes.append(residue.index)
+        for residue in sim.topology.residues():
+            if residue.name in core_residue_name:
+                residue_indexes.append(residue.index)
+
+        atom_indexes=[[],[],[]]
+        for atom in sim.topology.atoms():
+            if atom.residue.index in residue_indexes:
+                i = atom.residue.index
+                atom_indexes[residue_indexes.index(i)].append(atom.index)
+        print(atom_indexes)
+
+        # Define collective variables and sampling methods.
+        indices_0 = atom_indexes[0]
+        indices_1 = atom_indexes[1]
+        indices_2 = atom_indexes[2]
+        # CV1: distance between two cores;
+        # CV2: sum of distances between cores and the bridge
+        # Note that CV2 is always larger than CV1, so the lower limit of CV2 should be larger than the upper limit of CV1,
+        # otherwise part of the 2D sample space will be unphysical and could leads to 'nan' in the final forces and free energy.
+        cv = [Distance([indices_1, indices_2]), DistancesSum([indices_0, indices_1, indices_2])]
+        grid = Grid(lower=(0.33, 2.5), upper=(1.93, 3.5), shape=(32, 32))
+        cv_restraints = CVRestraints(lower=(0.33, 2.5), upper=(1.93, 3.5), ku=100, kl=100)
+        sampling_method = ABF(cv, grid, restraints=cv_restraints)
         state = pysages.run(sampling_method, generate_simulation, timesteps, callback)
 
     with restart_file.open("wb") as rf:
