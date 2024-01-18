@@ -282,9 +282,9 @@ class residue:
         if self.smiles_with_dummy is None:
             raise RuntimeError("Please set dummy replacement first using set_dummy_replacement().")
         if isinstance(dummy_replacement, list) and len(dummy_replacement) == self.num_dummy:
-            for i in range(len(dummy_replacement)):
-                if len(dummy_replacement[i]) == 1 or dummy_replacement[i] == "[NH3+]":
-                    self.replace_dummy_with.append(dummy_replacement[i])
+            for dummy in dummy_replacement:
+                if len(dummy) == 1 or dummy == "[NH3+]":
+                    self.replace_dummy_with.append(dummy)
                 else:
                     raise RuntimeError("Invalid dummy replacement atom.")
         else:
@@ -481,7 +481,7 @@ class residue:
                 # check dummy atoms
                 dummy_flag = True
                 for i in range(self.num_dummy):
-                    dummy = f.readline().strip('\n')[5]
+                    dummy = f.readline().strip('\n')[5:]
                     if dummy != self.replace_dummy_with[i]:
                         dummy_flag = False
                 if not dummy_flag:
