@@ -407,6 +407,7 @@ class complex():
             expanded_corei = util.expand_substructure(ligands[i], core, expand_iteration=1)
             expanded_cores.append(expanded_corei)
             motif_template = AllChem.MolFromSmiles(self.binding_molecule.motif_smiles)
+            motif_template = AllChem.AddHs(motif_template)
             motif = AllChem.MolFromPDBFile(self.binding_molecule.motif_pdb, removeHs=False)
             motif = AllChem.Mol(motif)
             motif = AllChem.AssignBondOrdersFromTemplate(motif_template, motif)
