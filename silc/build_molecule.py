@@ -145,6 +145,7 @@ class binding_molecule:
         with open("tleap_ditopic%s.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_ditopic%s.log\n" % appendix)
+            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
             f.write("loadamberprep core/molecule_head.prepi\n")
             f.write("loadamberprep core/molecule_tail.prepi\n")
             f.write("loadamberprep tail/molecule_head.prepi\n")
@@ -227,6 +228,7 @@ class binding_molecule:
         with open("tleap_motif%s.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_motif%s.log\n" % appendix)
+            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
             f.write("loadamberprep core/molecule_head.prepi\n")
             f.write("loadamberprep core/molecule_tail.prepi\n")
             f.write("loadamberprep tail/molecule_head.prepi\n")
@@ -424,7 +426,7 @@ class complex():
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_motif_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
-
+            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
             f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
@@ -509,7 +511,7 @@ class complex():
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_ditopic_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
-
+            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
             f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
