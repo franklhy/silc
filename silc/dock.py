@@ -3,18 +3,20 @@ from rdkit.Chem import AllChem
 import meeko
 from vina import Vina
 import py3Dmol
+import MDAnalysis as mda
 
 from importlib_resources import files
 
 from . import util
 
 class dock:
-    def __init__(self, sf_name, receptor_name, receptor_pdb_path=None, receptor_map_path=None):
+    def __init__(self, sf_name, receptor_name, receptor_toppdb_path=None, receptor_map_path=None):
         self.sf_name = sf_name
         self.receptor_name = receptor_name
-        self.receptor_pdb_path = receptor_pdb_path
+        self.receptor_toppdb_path = receptor_toppdb_path
         self.receptor_map_path = receptor_map_path
         self.use_receptor_database = False
+        self.receptor_top = None
         self.receptor_pdb = None
         self.receptor = None
         self.ligand = None
@@ -25,15 +27,19 @@ class dock:
         self.v = Vina(sf_name=self.sf_name)
 
         # try to find the receptor in the database (i.e. from data/receptor)
-        if self._find_receptor(self.receptor_name) and self.receptor_pdb_path is None:
+        if self._find_receptor(self.receptor_name) and self.receptor_toppdb_path is None:
+            self.receptor_top = str(files("silc.data.receptor").joinpath("%s.top" % self.receptor_name))
             self.receptor_pdb = str(files("silc.data.receptor").joinpath("%s.pdb" % self.receptor_name))
-            print("Found receptor %s in database at %s" % (self.receptor_name, self.receptor_pdb))
+            print("Found receptor %s in database at %s and %s" % (self.receptor_name, self.receptor_top, self.receptor_pdb))
             self.use_receptor_database = True
-        elif self._find_receptor(self.receptor_name) and self.receptor_pdb_path is not None:
-            self.receptor_pdb = os.path.join(self.receptor_pdb_path, "%s.pdb" % self.receptor_name)
+        elif self._find_receptor(self.receptor_name) and self.receptor_toppdb_path is not None:
+            self.receptor_top = os.path.join(self.receptor_toppdb_path, "%s.top" % self.receptor_name)
+            self.receptor_pdb = os.path.join(self.receptor_toppdb_path, "%s.pdb" % self.receptor_name)
         else:
             raise RuntimeError("Cannot find receptor.")
-        self.receptor = AllChem.MolFromPDBFile(self.receptor_pdb, removeHs=False)
+        u = mda.Universe(self.receptor_top, self.receptor_pdb)
+        receptor = u.select_atoms("all")
+        self.receptor = receptor.convert_to("RDKIT")
 
         ### load affinity precalculated affinity map
         if self.use_receptor_database:
