@@ -346,7 +346,7 @@ class binding_molecule:
         '''
         ### define reaction
         ### K is used as the tail dummy atom in the head molecule, I is used as the head dummy atom in the tail molecule
-        rxn = rdChemReactions.ReactionFromSmarts("[C,O,N:1][K:2].[I:3][C,O,N:4]>>[C,O,N:1][C,O,N:4]")
+        rxn = rdChemReactions.ReactionFromSmarts("[C,c,O,N:1][K:2].[I:3][C,c,O,N:4]>>[C,c,O,N:1][C,c,O,N:4]")
         prod = reactants[0]
         if len(reactants) >= 2:
             for i in range(len(reactants)-1):
@@ -400,7 +400,7 @@ class complex():
         os.chdir(self.work_path)
 
         ligands = self.dock.ligand_mol(n_ligand=n_motif, pose_id=dock_pose_id)
-        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["", ""], replace_mass_label=True))
+        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["[H]", "[H]"], replace_mass_label=True))
         motifs = []
         expanded_cores = []
         for i in range(n_motif):
