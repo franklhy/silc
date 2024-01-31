@@ -1,3 +1,4 @@
+import os
 import copy
 import numpy as np
 
@@ -15,8 +16,9 @@ class HistogramLogger:
     offset:
         Time steps at the beginning of a run used for equilibration.
     """
-    def __init__(self, basename, period: int, offset: int = 0):
+    def __init__(self, basename, output_path, period: int, offset: int = 0):
         self.basename = basename
+        self.output_path = output_path
         self.period = period
         self.offset = offset
         self.counter = 0
@@ -40,7 +42,8 @@ class HistogramLogger:
             self.save_file()
 
     def save_file(self):
-        np.savetxt("%s-%d.txt" % (self.basename, self.counter), self.data)
+        filename = os.path.join(self.output_path, "%s-%d.txt" % (self.basename, self.counter))
+        np.savetxt(filename, self.data)
 
 
 class ABFLogger:
@@ -60,8 +63,9 @@ class ABFLogger:
     offset:
         Time steps at the beginning of a run used for equilibration.
     """
-    def __init__(self, basename, period_hist_force: int, period_cv: int, offset: int = 0):
+    def __init__(self, basename, output_path, period_hist_force: int, period_cv: int, offset: int = 0):
         self.basename = basename
+        self.output_path = output_path
         self.period_hist_force = period_hist_force
         self.period_cv = period_cv
         self.offset = offset
@@ -102,17 +106,23 @@ class ABFLogger:
 
     def save_file_hist(self):
         if len(self.hist.shape) <= 2:
-            np.savetxt("%s-hist-%d.txt" % (self.basename, self.counter), self.hist, fmt="%d")
+            filename = os.path.join(self.output_path, "%s-hist-%d.txt" % (self.basename, self.counter))
+            np.savetxt(filename, self.hist, fmt="%d")
 
     def save_file_force(self):
         if self.force.shape[-1] == 1:
-            np.savetxt("%s-force-%d.txt" % (self.basename, self.counter), self.force)
+            filename = os.path.join(self.output_path, "%s-force-%d.txt" % (self.basename, self.counter))
+            print(filename)
+            np.savetxt(filename, self.force)
         elif self.force.shape[-1] == 2:
-            np.savetxt("%s-force-cv1-%d.txt" % (self.basename, self.counter), self.force[:,:,0])
-            np.savetxt("%s-force-cv2-%d.txt" % (self.basename, self.counter), self.force[:,:,1])
+            filename = os.path.join(self.output_path, "%s-force-cv1-%d.txt" % (self.basename, self.counter))
+            np.savetxt(filename, self.force[:,:,0])
+            filename = os.path.join(self.output_path, "%s-force-cv1-%d.txt" % (self.basename, self.counter))
+            np.savetxt(filename, self.force[:,:,1])
 
     def save_file_cv(self, mode):
-        with open("%s-cv.txt" % self.basename, mode) as f:
+        filename = os.path.join(self.output_path, "%s-cv.txt" % self.basename)
+        with open(filename, mode) as f:
             f.write("%d" % self.counter)
             for i in range(len(self.xi[0])):
                 f.write("\t%f" % self.xi[0][i])
