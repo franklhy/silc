@@ -117,7 +117,7 @@ class ABFLogger:
         elif self.force.shape[-1] == 2:
             filename = os.path.join(self.output_path, "%s-force-cv1-%d.txt" % (self.basename, self.counter))
             np.savetxt(filename, self.force[:,:,0])
-            filename = os.path.join(self.output_path, "%s-force-cv1-%d.txt" % (self.basename, self.counter))
+            filename = os.path.join(self.output_path, "%s-force-cv2-%d.txt" % (self.basename, self.counter))
             np.savetxt(filename, self.force[:,:,1])
 
     def save_file_cv(self, mode):
