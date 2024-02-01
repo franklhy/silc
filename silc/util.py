@@ -198,7 +198,7 @@ def optimize_complex(receptor, ligand_list, ligand_core_list, max_its=10000):
     # fix the position of receptor
     match = complex.GetSubstructMatch(receptor)
     for atom_idx in match:
-        ff.MMFFAddPositionConstraint(atom_idx, 0.01,200)
+        ff.MMFFAddPositionConstraint(atom_idx, 0.01, 200)
     # fix the position of ligand core
     for i in range(len(ligand_core_list)):
         matches = complex.GetSubstructMatches(ligand_core_list[i])

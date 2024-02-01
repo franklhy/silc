@@ -1,0 +1,3 @@
+[1*]COCc1ccc(-c2cc(C(=O)O)cc(-c3ccc(COC[2*])cc3)c2)cc1
+[1*]:C
+[2*]:C

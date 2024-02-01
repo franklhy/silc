@@ -165,7 +165,7 @@ class binding_molecule:
             f.write("saveamberparm mol_comb ditopic%s.prmtop ditopic%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateBox mol_comb TIP3PBOX 14.0\n")
+                f.write("solvateBox mol_comb TIP3PBOX 14.0 iso\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.ditopic_smiles))    # formal charge
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
@@ -246,7 +246,7 @@ class binding_molecule:
             f.write("saveamberparm mol_comb motif%s.prmtop motif%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateBox mol_comb TIP3PBOX 14.0\n")
+                f.write("solvateBox mol_comb TIP3PBOX 14.0 iso\n")
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.motif_smiles))    # formal charge
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
@@ -346,7 +346,7 @@ class binding_molecule:
         '''
         ### define reaction
         ### K is used as the tail dummy atom in the head molecule, I is used as the head dummy atom in the tail molecule
-        rxn = rdChemReactions.ReactionFromSmarts("[C,O,N:1][K:2].[I:3][C,O,N:4]>>[C,O,N:1][C,O,N:4]")
+        rxn = rdChemReactions.ReactionFromSmarts("[C,c,O,N:1][K:2].[I:3][C,c,O,N:4]>>[C,c,O,N:1][C,c,O,N:4]")
         prod = reactants[0]
         if len(reactants) >= 2:
             for i in range(len(reactants)-1):
@@ -400,13 +400,14 @@ class complex():
         os.chdir(self.work_path)
 
         ligands = self.dock.ligand_mol(n_ligand=n_motif, pose_id=dock_pose_id)
-        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["", ""], replace_mass_label=True))
+        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["[H]", "[H]"], replace_mass_label=True))
         motifs = []
         expanded_cores = []
         for i in range(n_motif):
             expanded_corei = util.expand_substructure(ligands[i], core, expand_iteration=1)
             expanded_cores.append(expanded_corei)
             motif_template = AllChem.MolFromSmiles(self.binding_molecule.motif_smiles)
+            motif_template = AllChem.AddHs(motif_template)
             motif = AllChem.MolFromPDBFile(self.binding_molecule.motif_pdb, removeHs=False)
             motif = AllChem.Mol(motif)
             motif = AllChem.AssignBondOrdersFromTemplate(motif_template, motif)
@@ -453,7 +454,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateBox complex TIP3PBOX 14.0\n")
+                f.write("solvateBox complex TIP3PBOX 14.0 iso\n")
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
@@ -537,7 +538,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateBox complex TIP3PBOX 14.0\n")
+                f.write("solvateBox complex TIP3PBOX 14.0 iso\n")
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
