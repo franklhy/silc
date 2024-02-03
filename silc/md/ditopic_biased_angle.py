@@ -17,7 +17,7 @@ from pysages.methods import ABF, CVRestraints
 # silc imports
 from silc.md.util import generate_simulation, prepare_restart
 from silc.md.logger import ABFLogger
-from silc.md.collective_variables import DistancesSum2,DistancesSum3
+from silc.md.collective_variables import DistancesSum
 
 
 restart = True
