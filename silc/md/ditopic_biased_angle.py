@@ -17,7 +17,7 @@ from pysages.methods import ABF, CVRestraints
 # silc imports
 from silc.md.util import generate_simulation, prepare_restart
 from silc.md.logger import ABFLogger
-from silc.md.collective_variables import DistancesSum
+from silc.md.collective_variables import DistancesSum, CenterOfMassAngle
 
 
 restart = True
@@ -67,7 +67,7 @@ else:
     # CV2: sum of distances between cores and the bridge
     # Note that CV2 is always larger than CV1, so the lower limit of CV2 should be larger than the upper limit of CV1,
     # otherwise part of the 2D sample space will be unphysical and could leads to 'nan' in the final forces and free energy.
-    cv = [DistancesSum([indices_0, indices_1, indices_2]), Angle([indices_1, indices_0, indices_2])]
+    cv = [DistancesSum([indices_0, indices_1, indices_2]), CenterOfMassAngle([indices_1, indices_0, indices_2])]
     grid = Grid(lower=(0.6, 0.0), upper=(3.5, 3.14), shape=(32, 32))
     cv_restraints = CVRestraints(lower=(0.6, 0.0), upper=(3.5, 3.14), ku=100, kl=100)
     sampling_method = ABF(cv, grid, restraints=cv_restraints)
