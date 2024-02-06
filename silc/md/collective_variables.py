@@ -1,6 +1,7 @@
 from pysages.colvars.core import ThreePointCV
 from pysages.colvars.coordinates import barycenter, distance
-import numpy as np
+from jax import numpy as np
+from jax.numpy import linalg
 
 class DistancesSum(ThreePointCV):
     """
