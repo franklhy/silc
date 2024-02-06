@@ -32,6 +32,11 @@ def generate_simulation(
                                     constraints=app.HBonds,
     )
 
+    # barostat
+    if NPT_steps > 0:
+        barostat = mm.MonteCarloBarostat(1.0*u.atmosphere, T)
+        barostat_id = system.addForce(barostat)
+
     # Create the integrator to do Langevin dynamics
     integrator = mm.LangevinIntegrator(
                             T,       # Temperature of heat bath
@@ -78,8 +83,6 @@ def generate_simulation(
     # Run NPT dynamics
     if NPT_steps > 0:
         print('Running NPT dynamics')
-        barostat = mm.MonteCarloBarostat(1.0*u.atmosphere, T)
-        barostat_id = system.addForce(barostat)
         sim.step(NPT_steps)
         sim.saveState('final_NPT.xml')
         system.removeForce(barostat_id)
