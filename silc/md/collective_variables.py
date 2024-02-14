@@ -64,6 +64,7 @@ def distance_sum2(r1, r2, r3):
     r3 = barycenter(r3)
     return distance(r1, r2) + distance(r1, r3) + distance(r2, r3)
 
+
 class DistancesSum3(ThreePointCV):
     """
     Parameters
@@ -134,6 +135,19 @@ class DistancePBC(TwoPointCV):
     ----------
 
     indcies:
+        This is a list of two sets of indices. Each sets corresponds to a (part of a) molecule.
+
+    box:
+        This is a list of three floats, corresponding to simulation box dimension (assuming cuboid box),
+        i.e. [Lx, Ly, Lz]
+
+    Example
+    -------
+
+    indices1 = [0, 1, 2, 3, 4, 5]    # atom indices of molecule 1
+    indices2 = [10, 11, 12, 13, 14, 15]    # atom indices of molecule 2
+    box = [10., 10., 10.]    # simulation box dimension
+    cv = DistancePBC([indices1, indices2], box)
     """
 
     def __init__(self, indices, box=[1., 1., 1.,]):
@@ -147,6 +161,7 @@ class DistancePBC(TwoPointCV):
 
 def periodic(distance, box):
     return np.mod(distance + box * 0.5, box) - 0.5 * box
+
 
 def distance_pbc(r1, r2, box):
     r1 = barycenter(r1)
