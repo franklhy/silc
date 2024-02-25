@@ -32,11 +32,13 @@ class binding_molecule:
         self.work_path = None
         self.resource_path = None
         self.ditopic_pdb = None
-        self.ditopic_mol = None
+        self.ditopic_mol2 = None
+        self.ditopic_mol2_Tripos = None
         self.ditopic_charge = None
         self.ditopic_smiles = None
         self.motif_pdb = None
-        self.motif_mol = None
+        self.motif_mol2 = None
+        self.motif_mol2_Tripos = None
         self.motif_charge = None
         self.motif_smiles = None
 
@@ -142,26 +144,48 @@ class binding_molecule:
             appendix = ""
         else:
             appendix = "_%dmol" % nmol
-        with open("tleap_ditopic%s.in" % appendix, "w") as f:
+        with open("tleap_ditopic%s_step1.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
-            f.write("logfile leap_ditopic%s.log\n" % appendix)
-            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
+            f.write("logfile leap_ditopic%s_step1.log\n" % appendix)
+            #f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
             f.write("loadamberprep core/molecule_head.prepi\n")
             f.write("loadamberprep core/molecule_tail.prepi\n")
             f.write("loadamberprep tail/molecule_head.prepi\n")
             f.write("loadamberprep tail/molecule_tail.prepi\n")
             f.write("loadamberprep bridge/molecule_head.prepi\n")
             f.write("loadamberprep bridge/molecule_tail.prepi\n")
-            for i in range(nmol):
-                f.write("mol%d = sequence {TLA CRA BRD CRB TLB}\n" % i)
-                f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
-            f.write("mol_comb = combine {")
-            for i in range(nmol):
-                f.write("mol%d " % i)
-            f.write("}\n")
-            f.write("savepdb mol_comb ditopic%s.pdb\n" % appendix)
-            f.write("savemol2 mol_comb ditopic_Tripos%s.mol2 0\n" % appendix)
-            f.write("savemol2 mol_comb ditopic%s.mol2 1\n" % appendix)
+            f.write("mol = sequence {TLA CRA BRD CRB TLB}\n")
+            f.write("savepdb mol ditopic.pdb\n")
+            f.write("savemol2 mol ditopic_Tripos.mol2 0\n")
+            f.write("savemol2 mol ditopic.mol2 1\n")
+            if nmol > 1:
+                for i in range(nmol):
+                    f.write("mol%d = sequence {TLA CRA BRD CRB TLB}\n" % i)
+                    f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
+                f.write("mol_comb = combine {")
+                for i in range(nmol):
+                    f.write("mol%d " % i)
+                f.write("}\n")
+                f.write("savepdb mol_comb ditopic%s.pdb\n" % appendix)
+                f.write("savemol2 mol_comb ditopic_Tripos%s.mol2 0\n" % appendix)
+                f.write("savemol2 mol_comb ditopic%s.mol2 1\n" % appendix)
+            f.write("quit\n")
+        result = subprocess.run(["tleap", "-f", "tleap_ditopic%s_step1.in" % appendix])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_ditopic%s_step1.log" % appendix)
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
+        
+        result = subprocess.run(["parmchk2", "-i", "ditopic%s.mol2" % appendix, "-f", "mol2", "-o", "ditopic.frcmod", "-s", "gaff2"])
+        if result.returncode != 0:
+            raise RuntimeError("parmchk2 run error.")
+
+        with open("tleap_ditopic%s_step2.in" % appendix, "w") as f:
+            f.write("source leaprc.gaff2\n")
+            f.write("logfile leap_ditopic%s_step2.log\n" % appendix)
+            f.write("loadamberparams ditopic.frcmod\n\n")
+            f.write("mol_comb = loadmol2 ditopic%s.mol2\n" % appendix)
             f.write("saveamberparm mol_comb ditopic%s.prmtop ditopic%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
@@ -176,15 +200,16 @@ class binding_molecule:
                 f.write("savepdb mol_comb ditopic%s_solv.pdb\n" % appendix)
                 f.write("saveamberparm mol_comb ditopic%s_solv.prmtop ditopic%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
-        result = subprocess.run(["tleap", "-f", "tleap_ditopic%s.in" % appendix])
+        result = subprocess.run(["tleap", "-f", "tleap_ditopic%s_step2.in" % appendix])
         if result.returncode != 0:
             raise RuntimeError("tleap run error.")
-        leap_status = util.check_leap_log("leap_ditopic%s.log" % appendix)
+        leap_status = util.check_leap_log("leap_ditopic%s_step2.log" % appendix)
         if leap_status[0] != 0:
             raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         self.ditopic_pdb = os.path.join(os.path.abspath(os.getcwd()), "ditopic.pdb")
         self.ditopic_mol2 = os.path.join(os.path.abspath(os.getcwd()), "ditopic.mol2")
+        self.ditopic_mol2_Tripos = os.path.join(os.path.abspath(os.getcwd()), "ditopic_Tripos.mol2")
         self.ditopic_charge = util.read_mol2_charge(self.ditopic_mol2)
     
         os.chdir(cwd)
@@ -225,24 +250,45 @@ class binding_molecule:
             appendix = ""
         else:
             appendix = "_%dmol" % nmol
-        with open("tleap_motif%s.in" % appendix, "w") as f:
+        with open("tleap_motif%s_step1.in" % appendix, "w") as f:
             f.write("source leaprc.gaff2\n")
-            f.write("logfile leap_motif%s.log\n" % appendix)
-            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
+            f.write("logfile leap_motif%s_step1.log\n" % appendix)
             f.write("loadamberprep core/molecule_head.prepi\n")
             f.write("loadamberprep core/molecule_tail.prepi\n")
             f.write("loadamberprep tail/molecule_head.prepi\n")
             f.write("loadamberprep tail/molecule_tail.prepi\n")
-            for i in range(nmol):
-                f.write("mol%d = sequence {TLA CRA TLB}\n" % i)
-                f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
-            f.write("mol_comb = combine {")
-            for i in range(nmol):
-                f.write("mol%d " % i)
-            f.write("}\n")
-            f.write("savepdb mol_comb motif%s.pdb\n" % appendix)
-            f.write("savemol2 mol_comb motif_Tripos%s.mol2 0\n" % appendix)
-            f.write("savemol2 mol_comb motif%s.mol2 1\n" % appendix)
+            f.write("mol = sequence {TLA CRA TLB}\n")
+            f.write("savepdb mol motif.pdb\n")
+            f.write("savemol2 mol motif_Tripos.mol2 0\n")
+            f.write("savemol2 mol motif.mol2 1\n")
+            if nmol > 1:
+                for i in range(nmol):
+                    f.write("mol%d = sequence {TLA CRA TLB}\n" % i)
+                    f.write("translate mol%d {%f %f %f}\n" % (i, translate[0]*i, translate[1]*i, translate[2]*i))
+                f.write("mol_comb = combine {")
+                for i in range(nmol):
+                    f.write("mol%d " % i)
+                f.write("}\n")
+                f.write("savepdb mol_comb motif%s.pdb\n" % appendix)
+                f.write("savemol2 mol_comb motif_Tripos%s.mol2 0\n" % appendix)
+                f.write("savemol2 mol_comb motif%s.mol2 1\n" % appendix)
+            f.write("quit\n")
+        result = subprocess.run(["tleap", "-f", "tleap_motif%s_step1.in" % appendix])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_motif%s_step1.log" % appendix)
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
+        
+        result = subprocess.run(["parmchk2", "-i", "motif.mol2", "-f", "mol2", "-o", "motif.frcmod", "-s", "gaff2"])
+        if result.returncode != 0:
+            raise RuntimeError("parmchk2 run error.")
+
+        with open("tleap_motif%s_step2.in" % appendix, "w") as f:
+            f.write("source leaprc.gaff2\n")
+            f.write("logfile leap_motif%s_step2.log\n" % appendix)
+            f.write("loadamberparams motif.frcmod\n\n")
+            f.write("mol_comb = loadmol2 motif%s.mol2\n" % appendix)
             f.write("saveamberparm mol_comb motif%s.prmtop motif%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
@@ -257,15 +303,16 @@ class binding_molecule:
                 f.write("savepdb mol_comb motif%s_solv.pdb\n" % appendix)
                 f.write("saveamberparm mol_comb motif%s_solv.prmtop motif%s_solv.rst7\n" % (appendix, appendix))
             f.write("quit\n")
-        result = subprocess.run(["tleap", "-f", "tleap_motif%s.in" % appendix])
+        result = subprocess.run(["tleap", "-f", "tleap_motif%s_step2.in" % appendix])
         if result.returncode != 0:
             raise RuntimeError("tleap run error.")
-        leap_status = util.check_leap_log("leap_motif%s.log" % appendix)
+        leap_status = util.check_leap_log("leap_motif%s_step2.log" % appendix)
         if leap_status[0] != 0:
             raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         self.motif_pdb = os.path.join(os.path.abspath(os.getcwd()), "motif.pdb")
         self.motif_mol2 = os.path.join(os.path.abspath(os.getcwd()), "motif.mol2")
+        self.motif_mol2_Tripos = os.path.join(os.path.abspath(os.getcwd()), "motif_Tripos.mol2")
         self.motif_charge = util.read_mol2_charge(self.motif_mol2)
 
         os.chdir(cwd)
@@ -427,7 +474,7 @@ class complex():
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_motif_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
-            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
+            f.write("loadamberparams %s/motif.frcmod\n\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
@@ -482,8 +529,9 @@ class complex():
 
         ligands = self.dock.ligand_mol(n_ligand=2, pose_id=0)   
         core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["", ""], replace_mass_label=True))
-        expanded_core = util.expand_substructure(ligands[0], core, expand_iteration=1)
+        expanded_core = util.expand_substructure(ligands[0], core, expand_iteration=0)
         ditopic_template = AllChem.MolFromSmiles(self.binding_molecule.ditopic_smiles)
+        ditopic_template = AllChem.AddHs(ditopic_template)
         ditopic = AllChem.MolFromPDBFile(self.binding_molecule.ditopic_pdb, removeHs=False)
         ditopic = AllChem.Mol(ditopic)
         ditopic = AllChem.AssignBondOrdersFromTemplate(ditopic_template, ditopic)
@@ -512,7 +560,7 @@ class complex():
             f.write("source leaprc.gaff2\n")
             f.write("logfile leap_ditopic_complex.log\n")
             f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
-            f.write("loadamberparams %s\n\n" % files('silc.data.residue').joinpath('frcmod.silc'))
+            f.write("loadamberparams %s/ditopic.frcmod\n\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
             f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
