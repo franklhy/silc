@@ -80,10 +80,10 @@ def expand_substructure(mol, core, expand_iteration=1, only_include=None):
 
     Return rdkit molecule
     '''
-    if expand_iteration == 0:
+    if expand_iteration == -1:
         return AllChem.Mol(core)
 
-    if expand_iteration < 0:
+    if expand_iteration < -1:
         raise RuntimeError("cannot have negative iteration number")
 
     if not mol.HasSubstructMatch(core):
@@ -91,19 +91,20 @@ def expand_substructure(mol, core, expand_iteration=1, only_include=None):
 
     match = mol.GetSubstructMatches(core)
     if len(match) > 1:
-        raise RuntimeError("More than one substructure matched")
+        raise RuntimeError("More than one substructure matched. Total %d mathces." % len(match))
 
     # Add the atoms from the matched substructure and their 1st neighbors
     core_atom_indices = list(match[0])
     keep_atom_indices = list(match[0])
-    for atom_idx in core_atom_indices:
-        atom = mol.GetAtomWithIdx(atom_idx)
-        for neighbor in atom.GetNeighbors():
-            neighbor_idx = neighbor.GetIdx()
-            if neighbor_idx not in keep_atom_indices:
-                neigh_atom = mol.GetAtomWithIdx(neighbor_idx)
-                if only_include is None or AllChem.GetPeriodicTable().GetElementSymbol(neigh_atom.GetAtomicNum()) in only_include:
-                    keep_atom_indices.append(neighbor_idx)
+    if expand_iteration > 0:
+        for atom_idx in core_atom_indices:
+            atom = mol.GetAtomWithIdx(atom_idx)
+            for neighbor in atom.GetNeighbors():
+                neighbor_idx = neighbor.GetIdx()
+                if neighbor_idx not in keep_atom_indices:
+                    neigh_atom = mol.GetAtomWithIdx(neighbor_idx)
+                    if only_include is None or AllChem.GetPeriodicTable().GetElementSymbol(neigh_atom.GetAtomicNum()) in only_include:
+                        keep_atom_indices.append(neighbor_idx)
 
     # Initialize a new empty molecule to store the expanded substructure
     expanded_core = AllChem.RWMol(mol)
