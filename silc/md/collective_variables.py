@@ -171,7 +171,6 @@ def distance_pbc(r1, r2, box):
     return linalg.norm(wrap(dr, box))
 
 
-
 class Alignment(TwoPointCV):
     """
     Collective Variable that calculates the alignment between two groups of particles.
