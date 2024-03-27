@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-#from __future__ import division, print_function
+'''
+Run a biased simulation that calculate the stacking free energy between two motif molecules
+It applies the ABF method, using the distance between two motif cores as the collective variable.
+'''
+
 
 import os
 import dill as pickle

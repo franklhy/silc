@@ -2,6 +2,7 @@ from pysages.colvars.core import TwoPointCV, ThreePointCV
 from pysages.colvars.coordinates import barycenter, distance
 from jax import numpy as np
 from jax.numpy import linalg
+from jax import vmap
 
 class DistancesSum(ThreePointCV):
     """
@@ -168,3 +169,49 @@ def distance_pbc(r1, r2, box):
     r2 = barycenter(r2)
     dr = r1 - r2
     return linalg.norm(periodic(dr, box))
+
+
+
+class Alignment(TwoPointCV):
+    """
+    Collective Variable that calculates the alignment between two groups of particles.
+    The alignment is defined as the cos^2(theta), where theta is the angle between the axis
+    of two groups of particles. The first group should be rod like, and the second is plate like.
+
+    Parameters
+    ----------
+    indices: list[int], list[tuple(int)]
+        Must be a list or tuple of atoms (ints or ranges) or groups of atoms.
+        A group is specified as a nested list or tuple of atoms.
+    group_length: int, optional
+        Specify if a fixed group length is expected.
+    """
+
+    @property
+    def function(self):
+        """
+        Returns
+        -------
+        Callable
+            See `pysages.colvars.pairwise.coordination` for details.
+        """
+        return alignment
+
+def mono_inertia(p):
+    inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
+    return inertia
+
+def moment_inertia(positions):
+    pos_b = barycenter(positions)
+    fit_pos=np.add(positions,-pos_b)
+    I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
+    return I
+
+def alignment(rod, plate):
+    S1 = moment_inertia(rod)
+    S2 = moment_inertia(plate)
+    _, v1 = linalg.eigh(S1)
+    _, v2 = linalg.eigh(S2)
+    u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
+    u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
+    return np.dot(u1,u2)**2
