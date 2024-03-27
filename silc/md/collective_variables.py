@@ -160,7 +160,7 @@ class DistancePBC(TwoPointCV):
         return lambda r1, r2: distance_pbc(r1, r2, self.box)
 
 
-def periodic(distance, box):
+def wrap(distance, box):
     return np.mod(distance + box * 0.5, box) - 0.5 * box
 
 
@@ -168,7 +168,7 @@ def distance_pbc(r1, r2, box):
     r1 = barycenter(r1)
     r2 = barycenter(r2)
     dr = r1 - r2
-    return linalg.norm(periodic(dr, box))
+    return linalg.norm(wrap(dr, box))
 
 
 
