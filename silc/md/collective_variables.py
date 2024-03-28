@@ -1,4 +1,4 @@
-from pysages.colvars.core import TwoPointCV, ThreePointCV
+from pysages.colvars.core import CollectiveVariable, TwoPointCV, ThreePointCV
 from pysages.colvars.coordinates import barycenter, distance
 from jax import numpy as np
 from jax.numpy import linalg
@@ -214,3 +214,45 @@ def alignment(rod, plate):
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
     u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
     return np.dot(u1,u2)**2
+
+
+class RadiusOfGyration(CollectiveVariable):
+    """
+    Collective Variable that calculates the unweighted radius of gyration as CV.
+
+    Parameters
+    ----------
+    indices: list[int], list[tuple(int)]
+        Must be a list or tuple of atoms (integers or ranges) or groups of atoms.
+        A group is specified as a nested list or tuple of atoms.
+    group_length: int, optional
+        Specify if a fixed group length is expected.
+    """
+
+    @property
+    def function(self):
+        return radius_of_gyration
+
+def mono_gyration(p):
+    inertia=np.dot(p,p)
+    return inertia
+
+def radius_of_gyration(positions):
+    """
+    Calculate the radius of gyration for a group of atoms.
+
+    Parameters
+    ----------
+    positions: jax.Array
+        Array of particle positions used to calculate the radius of gyration.
+
+    Returns
+    -------
+    jax.Array
+        Radius of gyration
+    """
+    group_length = positions.shape[0]
+    pos_b = barycenter(positions)
+    fit_pos = np.add(positions,-pos_b)
+    Rg = vmap(mono_gyration, in_axes=0)(fit_pos).sum(axis=0)
+    return Rg / group_length
