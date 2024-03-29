@@ -218,7 +218,7 @@ def alignment(rod, plate):
 
 class RadiusOfGyration(CollectiveVariable):
     """
-    Collective Variable that calculates the unweighted radius of gyration as CV.
+    Collective Variable that calculates the unweighted SQUARED radius of gyration as CV.
 
     Parameters
     ----------

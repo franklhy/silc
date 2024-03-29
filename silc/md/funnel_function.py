@@ -103,6 +103,7 @@ def intermediate_funnel(
     new_lig_pos = pos_anchor + ligand_distances
     pos_ligand = center(new_lig_pos, weights_ligand)
     pos_tail = pos_anchor + tail_distances
+    pos_tail = center(pos_tail, None)
     pos_ref = center(np.asarray(references), weights_protein)
     lig_rot = rotation_lig(
         pos_ligand, pos_protein, np.asarray(references), weights_protein, pos_ref
