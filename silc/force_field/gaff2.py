@@ -152,7 +152,8 @@ class charge:
                 else:
                     print("Warning: Partial charges of equivalent atoms are different. Enforce charge symmetrization.")
                     avg = np.mean(v)
-                    new_sym_chg[k] = avg
+                    std = np.std(v)
+                    new_sym_chg[k] = [avg, std]
                     dev = (np.array(v) - avg) / avg
                     if np.max(dev) > 0.01:
                         print("Warning: Partial charges of equivalent atoms differs more by 1%%.")
