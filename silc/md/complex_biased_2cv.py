@@ -134,8 +134,10 @@ with open(os.path.join(output_path, restart_name), "wb") as rf:
 print("Simulation finished")
 
 result = pysages.analyze(state)
-energy = np.asarray(result["free_energy"])
-forces = np.asarray(result["mean_force"])
+energy = np.asarray(result["free_energy_corrected"])
+forces = np.asarray(result["force_corrected"])
+hist = np.asarray(result["histogram"])
 grid = np.asarray(result["mesh"])
 np.savetxt(os.path.join(output_path, "FES.txt"), np.hstack([grid, energy.reshape(-1, 1)]))
 np.savetxt(os.path.join(output_path, "Forces.txt"), np.hstack([grid, forces.reshape(-1, grid.shape[1])]))
+np.savetxt(os.path.join(output_path, "Histogram.txt"), np.hstack([grid, hist.reshape(-1, 1)]))
