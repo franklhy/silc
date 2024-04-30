@@ -89,7 +89,7 @@ class ABFLogger:
                 self.hist_cum = copy.copy(hist)
             else:
                 self.hist = hist - self.hist_cum
-                self.dhist_cum = copy.copy(hist)
+                self.hist_cum = copy.copy(hist)
             self.save_file_hist()
 
             shape = (*state.Fsum.shape[:-1], 1)
