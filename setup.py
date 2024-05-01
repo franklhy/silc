@@ -13,7 +13,8 @@ setup(
         'py3Dmol>=2.0.0',
         'openmm',
         'parmed',
-        'dill'
+        'dill',
+        'openmmtools @ git+https://github.com/choderalab/openmmtools.git#egg=0.23.1',
     ],
     #package_data={'silc': ['data/receptor/*', 'data/tutorial/*']}
     package_data={'silc': ['data/*/**',]}
