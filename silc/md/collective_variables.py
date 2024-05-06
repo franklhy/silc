@@ -1,4 +1,4 @@
-from pysages.colvars.core import TwoPointCV, ThreePointCV
+from pysages.colvars.core import TwoPointCV, ThreePointCV, FourPointCV
 from pysages.colvars.coordinates import barycenter, distance
 from jax import numpy as np
 from jax.numpy import linalg
