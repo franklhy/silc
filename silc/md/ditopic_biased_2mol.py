@@ -20,7 +20,7 @@ from pysages.methods import ABF, CVRestraints
 # silc imports
 from silc.md.util import generate_simulation, prepare_restart
 from silc.md.logger import ABFLogger
-from silc.md.collective_variables import DistancePBC, MultipliedDistances
+from silc.md.collective_variables import DistancePBC, DistancesProduct
 
 
 restart = True
@@ -79,7 +79,7 @@ else:
     indices_5 = atom_indexes[5]
 
     # CV1: distance between two cores;
-    cv = [DistancePBC([indices_0, indices_1], box),MultipliedDistances([indices_2, indices_3, indices_4, indices_5])]
+    cv = [DistancePBC([indices_0, indices_1], box), DistancesProduct([indices_2, indices_3, indices_4, indices_5])]
     grid = Grid(lower=(0.3,0.1), upper=(4.,9.), shape=(64,64))
     cv_restraints = CVRestraints(lower=(0.3,0.1), upper=(4.,9.), ku=100, kl=100)
     sampling_method = ABF(cv, grid, restraints=cv_restraints)

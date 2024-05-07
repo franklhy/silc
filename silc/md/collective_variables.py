@@ -96,12 +96,12 @@ def distance_sum3(r1, r2, r3):
     r3 = barycenter(r3)
     return distance(r1, r2) + distance(r1, r3) - distance(r2, r3)
 
-class MultipliedDistances(FourPointCV):
+class DistancesProduct(FourPointCV):
     @property
     def function(self):
         return multiplied_distances
 
-def multiplied_distances(r1, r2, r3, r4):
+def distances_product(r1, r2, r3, r4):
     r1 = barycenter(r1)
     r2 = barycenter(r2)
     r3 = barycenter(r3)
