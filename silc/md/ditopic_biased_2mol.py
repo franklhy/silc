@@ -26,8 +26,8 @@ from silc.md.collective_variables import DistancePBC, DistancesProduct
 restart = True
 timesteps = 20000000
 restart_name = "state.pickle"
-input_files = ['../molecules/motif_2mol_solv.prmtop', '../molecules/motif_2mol_solv.rst7']
-output_name = "motif_2mol_solv"
+input_files = ['../molecules/ditopic_2mol_solv.prmtop', '../molecules/ditopic_2mol_solv.rst7']
+output_name = "ditopic_2mol_solv"
 T = 298 * u.kelvin
 NPT_steps = 100000
 minimize_steps = 500
@@ -53,7 +53,7 @@ else:
     for residue in sim.topology.residues():
         if residue.name == 'TLA':
             residue_indexes.append(residue.index)   
-    for residue in sim.topology.residuges():
+    for residue in sim.topology.residues():
         if residue.name == 'TLB':
             residue_indexes.append(residue.index)
 
