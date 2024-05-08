@@ -50,8 +50,10 @@ else:
     for residue in sim.topology.residues():
         if residue.name == 'BRD':
             residue_indexes.append(residue.index)
+    for residue in sim.topology.residues():
         if residue.name == 'CRA':
-            residue_indexes.append(residue.index)    
+            residue_indexes.append(residue.index)   
+    for residue in sim.topology.residuges():
         if residue.name == 'CRB':
             residue_indexes.append(residue.index)
 
