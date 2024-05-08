@@ -51,10 +51,10 @@ else:
         if residue.name == 'BRD':
             residue_indexes.append(residue.index)
     for residue in sim.topology.residues():
-        if residue.name == 'CRA':
+        if residue.name == 'TLA':
             residue_indexes.append(residue.index)   
     for residue in sim.topology.residuges():
-        if residue.name == 'CRB':
+        if residue.name == 'TLB':
             residue_indexes.append(residue.index)
 
     print(residue_indexes)
@@ -81,7 +81,7 @@ else:
     indices_5 = atom_indexes[5]
 
     # CV1: distance between two cores;
-    cv = [DistancePBC([indices_0, indices_1], box), DistancesProduct([indices_2, indices_3, indices_4, indices_5])]
+    cv = [DistancePBC([indices_0, indices_1], box), DistancesProduct([indices_2, indices_4, indices_3, indices_5])]
     grid = Grid(lower=(0.3,0.1), upper=(4.,9.), shape=(64,64))
     cv_restraints = CVRestraints(lower=(0.3,0.1), upper=(4.,9.), ku=100, kl=100)
     sampling_method = ABF(cv, grid, restraints=cv_restraints)
