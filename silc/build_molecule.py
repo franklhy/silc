@@ -17,8 +17,9 @@ class binding_molecule:
     '''
     Build a ditopic molecule or a binding motif.
     '''
-    def __init__(self, charge_method='bcc'):
+    def __init__(self, charge_method='bcc', nproc=1):
         self.charge_method = charge_method
+        self.nproc = nproc    # only used when charge_method is "resp"
         self.core_smiles = None
         self.tail_smiles = None
         self.bridge_smiles = None
@@ -358,7 +359,7 @@ class binding_molecule:
                            this replacement atom should be chosen careful to reflect the chemical environment after new bond formation
         num_confs: number of conformers for charge calculation
         '''
-        res = gaff2.residue(charge_method=self.charge_method)
+        res = gaff2.residue(charge_method=self.charge_method, nproc=self.nproc)
         res.set_restype(restype)
         res.set_smiles(smiles)
         res.set_dummy_replacement(dummy_replacement)
@@ -407,8 +408,7 @@ class binding_molecule:
 
 
 class complex():
-    def __init__(self, charge_method='bcc', antechamber_status=1, remove_antechamber_intermediate_files=True):
-        self.charge_method = charge_method
+    def __init__(self, antechamber_status=1, remove_antechamber_intermediate_files=True):
         self.antechamber_status = antechamber_status
         if remove_antechamber_intermediate_files:
             self.raif = 'y'
