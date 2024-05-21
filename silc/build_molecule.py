@@ -31,7 +31,7 @@ class binding_molecule:
         self.bridge_num_confs_for_charge = 5
         self.mol = None
         self.work_path = None
-        self.resource_path = None
+        self.database_path = None
         self.ditopic_pdb = None
         self.ditopic_mol2 = None
         self.ditopic_mol2_Tripos = None
@@ -95,11 +95,8 @@ class binding_molecule:
             self.work_path = os.path.join(os.path.abspath(os.getcwd()), work_path)
 
 
-    def set_resource_path(self, resource_path=None):
-        if not resource_path:
-            self.resource_path = files('silc.data.tutorial').joinpath("amber_charge")
-        else:
-            self.resource_path = resource_path
+    def set_database_path(self, database_path=None):
+        self.database_path = database_path
 
 
     def clear_work_path(self):
@@ -365,7 +362,7 @@ class binding_molecule:
         res.set_dummy_replacement(dummy_replacement)
         res.set_num_confs(num_confs)
         res.set_work_path(restype)
-        res.set_database()
+        res.set_database(self.database_path)
         res.run()
 
 
