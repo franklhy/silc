@@ -525,6 +525,8 @@ class residue:
         return None is not found, else return the path of the residue from the database
         '''
         res_path = os.path.join(self.database, self.restype)
+        if not os.path.exists(res_path):
+            reture None
         sub_path = [f.path for f in os.scandir(res_path) if f.is_dir()]
         for sp in sub_path:
             if self._check_path(sp):
