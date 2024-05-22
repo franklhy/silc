@@ -1,4 +1,4 @@
-from pysages.colvars.core import TwoPointCV, ThreePointCV
+from pysages.colvars.core import TwoPointCV, ThreePointCV, FourPointCV
 from pysages.colvars.coordinates import barycenter, distance
 from jax import numpy as np
 from jax.numpy import linalg
@@ -95,6 +95,18 @@ def distance_sum3(r1, r2, r3):
     r2 = barycenter(r2)
     r3 = barycenter(r3)
     return distance(r1, r2) + distance(r1, r3) - distance(r2, r3)
+
+class DistancesProduct(FourPointCV):
+    @property
+    def function(self):
+        return distances_product
+
+def distances_product(r1, r2, r3, r4):
+    r1 = barycenter(r1)
+    r2 = barycenter(r2)
+    r3 = barycenter(r3)
+    r4 = barycenter(r4)
+    return distance(r1,r2) * distance(r3,r4)
 
 
 class CenterOfMassAngle(ThreePointCV):
