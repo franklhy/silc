@@ -16,11 +16,12 @@ class charge:
     Handle partial charge for molecules.
     '''
 
-    def __init__(self, method='bcc', read_only=False, antechamber_status=1, remove_antechamber_intermediate_files=True):
+    def __init__(self, charge_method='bcc', nproc=1, read_only=False, antechamber_status=1, remove_antechamber_intermediate_files=True):
         '''
         read_only: read only mode, only read partial charge from work_path where other partial charge calculation results are saved
         '''
-        self.method = method
+        self.charge_method = charge_method
+        self.nproc = nproc
         self.read_only = read_only
         self.antechamber_status = antechamber_status
         if remove_antechamber_intermediate_files:
@@ -76,7 +77,6 @@ class charge:
     def calculate_partial_charge(self):
         '''
         Use antechamber to calculate partial charge for atoms of a molecule, average over several gas phase conformations. For larger molecules, it will take very long.
-        Right now, only consider GAFF2 force field and AM1-BCC charge.
         '''
         if self.read_only:
             raise RuntimeError("Cannot calculate partial charge in read only mode.")
@@ -96,7 +96,23 @@ class charge:
         os.chdir(self.work_path)
         for cid in range(self.num_confs):
             util.save_pdb(self.mol, "confId%d.pdb" % cid, conf_id=cid, bond=False)
-            subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "bcc", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            if self.charge_method == "bcc":
+                subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "bcc", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            elif self.charge_method == "resp":
+                if shutil.which("g16") is not None:
+                    subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.gjf" % cid, "-fo", "gcrt", "-nc", "%d" % self.formal_charge, "-gn", "%%NProcShared=%d" % self.nproc, "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+                    print("Running Gaussian 16 to calcualte ESP charge.")
+                    subprocess.run(["g16","confId%d.gjf" % cid])
+                #elif shutil.which("g09") is not None:
+                    # NOTE: During testing, Gaussian 09 does not generate the gesp file as desired, and the resp charge fitting will fail when running the "antechamber -c resp"
+                    #subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.gjf" % cid, "-fo", "gcrt", "-nc", "%d" % self.formal_charge, "-gn", "%%NProcShared=%d" % self.nproc, "-gv", "1", "-ge", "confId%d.gesp" % cid, "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+                    #print("Running Gaussian 09 to calcualte ESP charge.")
+                    #subprocess.run(["g09","confId%d.gjf" % cid])
+                else:
+                    raise RuntimeError("Gaussian is not available. Fail to calculate ESP charge.")
+                subprocess.run(["antechamber", "-i", "confId%d.log" % cid, "-fi", "gout", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "resp", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            else:
+                raise RuntimeError("Invalid charge method: %s" % self.charge_method)
         os.chdir(cwd)
 
 
@@ -221,11 +237,12 @@ class charge:
 
 
 class residue:
-    def __init__(self, charge_method='bcc', antechamber_status=1, remove_antechamber_intermediate_files=True):
+    def __init__(self, charge_method='bcc', nproc=1, antechamber_status=1, remove_antechamber_intermediate_files=True):
         '''
         Create Amber residue
         '''
         self.charge_method = charge_method
+        self.nproc = nproc
         self.antechamber_status = antechamber_status
         if remove_antechamber_intermediate_files:
             self.raif = 'y'
@@ -368,7 +385,7 @@ class residue:
                 svg.write(img.data)
 
         # calculate partial charge
-        chg = charge(method=self.charge_method)
+        chg = charge(charge_method=self.charge_method, nproc=self.nproc)
         chg.set_work_path(os.path.join(self.work_path, "amber_charge"))
         chg.set_molecule_from_smile(self.smiles)
         chg.set_num_confs(self.num_confs)
@@ -508,6 +525,8 @@ class residue:
         return None is not found, else return the path of the residue from the database
         '''
         res_path = os.path.join(self.database, self.restype)
+        if not os.path.exists(res_path):
+            return None
         sub_path = [f.path for f in os.scandir(res_path) if f.is_dir()]
         for sp in sub_path:
             if self._check_path(sp):
