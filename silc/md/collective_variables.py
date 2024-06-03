@@ -183,7 +183,7 @@ def distance_pbc(r1, r2, box):
     return linalg.norm(wrap(dr, box))
 
 
-class Alignment(TwoPointCV):
+class AlignRodPlate(TwoPointCV):
     """
     Collective Variable that calculates the alignment between two groups of particles.
     The alignment is defined as the cos^2(theta), where theta is the angle between the axis
@@ -218,7 +218,7 @@ def moment_inertia(positions):
     I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
     return I
 
-def alignment(rod, plate):
+def align_rod_plate(rod, plate):
     S1 = moment_inertia(rod)
     S2 = moment_inertia(plate)
     _, v1 = linalg.eigh(S1)
@@ -226,3 +226,49 @@ def alignment(rod, plate):
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
     u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
     return np.dot(u1,u2)**2
+
+
+class AlignTwoRods(TwoPointCV):
+    """
+    Collective Variable that calculates the alignment between two groups of particles.
+    The alignment is defined as the cos^2(theta), where theta is the angle between the axis
+    of two groups of particles. Both groups should be rod like.
+
+    Parameters
+    ----------
+    indices: list[int], list[tuple(int)]
+        Must be a list or tuple of atoms (ints or ranges) or groups of atoms.
+        A group is specified as a nested list or tuple of atoms.
+    group_length: int, optional
+        Specify if a fixed group length is expected.
+    """
+
+    @property
+    def function(self):
+        """
+        Returns
+        -------
+        Callable
+            See `pysages.colvars.pairwise.coordination` for details.
+        """
+        return alignment
+
+def mono_inertia(p):
+    inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
+    return inertia
+
+def moment_inertia(positions):
+    pos_b = barycenter(positions)
+    fit_pos=np.add(positions,-pos_b)
+    I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
+    return I
+
+def align_two_rods(rod1, rod2):
+    S1 = moment_inertia(rod1)
+    S2 = moment_inertia(rod2)
+    _, v1 = linalg.eigh(S1)
+    _, v2 = linalg.eigh(S2)
+    u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 1
+    u2=v2[:,0]   # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 2
+    return np.dot(u1,u2)**2
+
