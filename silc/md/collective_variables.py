@@ -206,7 +206,7 @@ class AlignRodPlate(TwoPointCV):
         Callable
             See `pysages.colvars.pairwise.coordination` for details.
         """
-        return alignment
+        return align_rod_plate
 
 def mono_inertia(p):
     inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
@@ -251,17 +251,7 @@ class AlignTwoRods(TwoPointCV):
         Callable
             See `pysages.colvars.pairwise.coordination` for details.
         """
-        return alignment
-
-def mono_inertia(p):
-    inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
-    return inertia
-
-def moment_inertia(positions):
-    pos_b = barycenter(positions)
-    fit_pos=np.add(positions,-pos_b)
-    I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
-    return I
+        return align_two_rods
 
 def align_two_rods(rod1, rod2):
     S1 = moment_inertia(rod1)
