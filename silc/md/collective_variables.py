@@ -260,5 +260,5 @@ def align_two_rods(rod1, rod2):
     _, v2 = linalg.eigh(S2)
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 1
     u2=v2[:,0]   # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 2
-    return np.dot(u1,u2)**2
+    return np.dot(u1,u2)
 
