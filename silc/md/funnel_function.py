@@ -103,15 +103,25 @@ def intermediate_funnel(
     new_lig_pos = pos_anchor + ligand_distances
     pos_ligand = center(new_lig_pos, weights_ligand)
     pos_tail = pos_anchor + tail_distances
-    pos_tail = center(pos_tail, None)
     pos_ref = center(np.asarray(references), weights_protein)
     lig_rot = rotation_lig(
         pos_ligand, pos_protein, np.asarray(references), weights_protein, pos_ref
     )
-    tail_rot = rotation_lig(
-        pos_tail, pos_protein, np.asarray(references), weights_protein, pos_ref
-    )
-    return funnel(lig_rot, np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max) + funnel(tail_rot, np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
+    tail_rot = []
+    pos_tail_array = []
+    for i in range(len(pos_tail)):
+        pos_tail_array.append(
+            center(pos_tail[i], None)
+        )
+        tail_rot.append(
+            rotation_lig(
+                pos_tail_array[i], pos_protein, np.asarray(references), weights_protein, pos_ref
+            )
+        )
+    myfunnel = funnel(lig_rot, np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
+    for i in range(len(pos_tail_array)):
+        myfunnel += funnel(tail_rot[i], np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
+    return myfunnel
 
 
 def log_funnel(
