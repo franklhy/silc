@@ -183,7 +183,7 @@ def distance_pbc(r1, r2, box):
     return linalg.norm(wrap(dr, box))
 
 
-class AlignRodPlate(TwoPointCV):
+class Alignment(TwoPointCV):
     """
     Collective Variable that calculates the alignment between two groups of particles.
     The alignment is defined as the cos^2(theta), where theta is the angle between the axis
@@ -218,16 +218,25 @@ def moment_inertia(positions):
     I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
     return I
 
-def align_rod_plate(rod, plate):
+def alignment(rod, plate, 2rods=False, assym=False):
     S1 = moment_inertia(rod)
     S2 = moment_inertia(plate)
     _, v1 = linalg.eigh(S1)
     _, v2 = linalg.eigh(S2)
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
     u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
-    return np.dot(u1,u2)**2
+    
+    if 2rods:
+        u2=v2[:,0] # eigenvector corresponds to the smallest principal moment of inerta, i.e. the axis of the second rod
+    
+    dotprod = np.dot(u1,u2)**2 # rods are symmetrical with respect to the 180º rotation 
+    
+    if assym:
+        dotprod = np.dot(u1,u2) # rods are assymetrical with respect to the 180º rotation
 
+    return dotprod
 
+'''
 class AlignTwoRods(TwoPointCV):
     """
     Collective Variable that calculates the alignment between two groups of particles.
@@ -261,4 +270,4 @@ def align_two_rods(rod1, rod2):
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 1
     u2=v2[:,0]   # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 2
     return np.dot(u1,u2)
-
+'''
