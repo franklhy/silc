@@ -198,6 +198,11 @@ class Alignment(TwoPointCV):
         Specify if a fixed group length is expected.
     """
 
+    def __init__(self, indices, two_rods: bool = False, asymmetric: bool = False):
+        super().__init__(indices)
+        self.two_rods = two_rods
+        self.asymmetric = asymmetric
+
     @property
     def function(self):
         """
@@ -206,7 +211,7 @@ class Alignment(TwoPointCV):
         Callable
             See `pysages.colvars.pairwise.coordination` for details.
         """
-        return alignment
+        return lambda: r1, r2: alignment(r1, r2, self.two_rods, self.asymmetric)
 
 def mono_inertia(p):
     inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
@@ -218,7 +223,7 @@ def moment_inertia(positions):
     I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
     return I
 
-def alignment(rod, plate, tworods=False, assym=False):
+def alignment(rod, plate, two_rods: bool = False, asymmetric: bool = False):
     S1 = moment_inertia(rod)
     S2 = moment_inertia(plate)
     _, v1 = linalg.eigh(S1)
@@ -226,13 +231,13 @@ def alignment(rod, plate, tworods=False, assym=False):
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
     u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
     
-    if tworods:
+    if two_rods:
         u2=v2[:,0] # eigenvector corresponds to the smallest principal moment of inerta, i.e. the axis of the second rod
     
     dotprod = np.dot(u1,u2)**2 # rods are symmetrical with respect to the 180º rotation 
     
-    if assym:
-        dotprod = np.dot(u1,u2) # rods are assymetrical with respect to the 180º rotation
+    if asymmetric:
+        dotprod = np.dot(u1,u2) # rods are asymmetrical with respect to the 180º rotation
 
     return dotprod
 
