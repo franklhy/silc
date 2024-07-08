@@ -206,7 +206,7 @@ class Alignment(TwoPointCV):
         Callable
             See `pysages.colvars.pairwise.coordination` for details.
         """
-        return align_rod_plate
+        return alignment
 
 def mono_inertia(p):
     inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
@@ -218,7 +218,7 @@ def moment_inertia(positions):
     I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
     return I
 
-def alignment(rod, plate, 2rods=False, assym=False):
+def alignment(rod, plate, tworods=False, assym=False):
     S1 = moment_inertia(rod)
     S2 = moment_inertia(plate)
     _, v1 = linalg.eigh(S1)
@@ -226,7 +226,7 @@ def alignment(rod, plate, 2rods=False, assym=False):
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
     u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
     
-    if 2rods:
+    if tworods:
         u2=v2[:,0] # eigenvector corresponds to the smallest principal moment of inerta, i.e. the axis of the second rod
     
     dotprod = np.dot(u1,u2)**2 # rods are symmetrical with respect to the 180º rotation 
