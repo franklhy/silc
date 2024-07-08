@@ -211,7 +211,7 @@ class Alignment(TwoPointCV):
         Callable
             See `pysages.colvars.pairwise.coordination` for details.
         """
-        return lambda: r1, r2: alignment(r1, r2, self.two_rods, self.asymmetric)
+        return lambda r1, r2: alignment(r1, r2, self.two_rods, self.asymmetric)
 
 def mono_inertia(p):
     inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
