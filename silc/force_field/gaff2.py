@@ -98,6 +98,7 @@ class charge:
             util.save_pdb(self.mol, "confId%d.pdb" % cid, conf_id=cid, bond=False)
             if self.charge_method == "bcc":
                 subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "bcc", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+                subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.ac" % cid, "-fo", "ac", "-c", "bcc", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
             elif self.charge_method == "resp":
                 if shutil.which("g16") is not None:
                     subprocess.run(["antechamber", "-i", "confId%d.pdb" % cid, "-fi", "pdb", "-o", "confId%d.gjf" % cid, "-fo", "gcrt", "-nc", "%d" % self.formal_charge, "-gn", "%%NProcShared=%d" % self.nproc, "-s", "%d" % self.antechamber_status, "-pf", self.raif])
@@ -111,6 +112,7 @@ class charge:
                 else:
                     raise RuntimeError("Gaussian is not available. Fail to calculate ESP charge.")
                 subprocess.run(["antechamber", "-i", "confId%d.log" % cid, "-fi", "gout", "-o", "confId%d.mol2" % cid, "-fo", "mol2", "-c", "resp", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+                subprocess.run(["antechamber", "-i", "confId%d.log" % cid, "-fi", "gout", "-o", "confId%d.ac" % cid, "-fo", "ac", "-c", "resp", "-nc", "%d" % self.formal_charge, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
             else:
                 raise RuntimeError("Invalid charge method: %s" % self.charge_method)
         os.chdir(cwd)
@@ -480,7 +482,7 @@ class residue:
             raise RuntimeError("cannot create a residue for the molecule given its SMILES: %s" % self.smiles_with_dummy)
 
         # prepare residues with amber tools
-        subprocess.run(["antechamber", "-i", os.path.join("amber_charge", "confId0.mol2"), "-fi", "mol2", "-o", "molecule.ac", "-fo", "ac", "-nc", "%d" % fc, "-c", "rc", "-cf", chf, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+        subprocess.run(["antechamber", "-i", os.path.join("amber_charge", "confId0.ac"), "-fi", "ac", "-o", "molecule.ac", "-fo", "ac", "-nc", "%d" % fc, "-c", "rc", "-cf", chf, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
         subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_head.prepi", "-f", "prepi", "-m", "mainchain_head.mc", "-rn", self.resname_head, "-rf", "molecule_head.res"])
         subprocess.run(["prepgen", "-i", "molecule.ac", "-o", "molecule_tail.prepi", "-f", "prepi", "-m", "mainchain_tail.mc", "-rn", self.resname_tail, "-rf", "molecule_tail.res"])
         os.remove("ATOMTYPE.INF")
