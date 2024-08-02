@@ -247,6 +247,10 @@ class AlignTwoRods(TwoPointCV):
     Collective Variable that calculates the alignment between two groups of particles.
     The alignment is defined as the cos^2(theta), where theta is the angle between the axis
     of two groups of particles. Both groups should be rod like.
+
+    Parameters
+    ----------
+    indices: list[int], list[tuple(int)]
         Must be a list or tuple of atoms (ints or ranges) or groups of atoms.
         A group is specified as a nested list or tuple of atoms.
     group_length: int, optional
@@ -255,7 +259,6 @@ class AlignTwoRods(TwoPointCV):
 
     @property
     def function(self):
-
         """
         Returns
         -------
