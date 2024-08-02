@@ -1,4 +1,4 @@
-from pysages.colvars.core import CollectiveVariable, TwoPointCV, ThreePointCV
+from pysages.colvars.core import CollectiveVariable, TwoPointCV, ThreePointCV, FourPointCV
 from pysages.colvars.coordinates import barycenter, distance
 from jax import numpy as np
 from jax.numpy import linalg
@@ -96,6 +96,18 @@ def distance_sum3(r1, r2, r3):
     r3 = barycenter(r3)
     return distance(r1, r2) + distance(r1, r3) - distance(r2, r3)
 
+class DistancesProduct(FourPointCV):
+    @property
+    def function(self):
+        return distances_product
+
+def distances_product(r1, r2, r3, r4):
+    r1 = barycenter(r1)
+    r2 = barycenter(r2)
+    r3 = barycenter(r3)
+    r4 = barycenter(r4)
+    return distance(r1,r2) * distance(r3,r4)
+
 
 class CenterOfMassAngle(ThreePointCV):
     """
@@ -186,6 +198,11 @@ class Alignment(TwoPointCV):
         Specify if a fixed group length is expected.
     """
 
+    def __init__(self, indices, two_rods: bool = False, asymmetric: bool = False):
+        super().__init__(indices)
+        self.two_rods = two_rods
+        self.asymmetric = asymmetric
+
     @property
     def function(self):
         """
@@ -194,7 +211,7 @@ class Alignment(TwoPointCV):
         Callable
             See `pysages.colvars.pairwise.coordination` for details.
         """
-        return alignment
+        return lambda r1, r2: alignment(r1, r2, self.two_rods, self.asymmetric)
 
 def mono_inertia(p):
     inertia=np.dot(p,p)*np.identity(3)-np.outer(p,p)
@@ -206,15 +223,56 @@ def moment_inertia(positions):
     I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
     return I
 
-def alignment(rod, plate):
+def alignment(rod, plate, two_rods: bool = False, asymmetric: bool = False):
     S1 = moment_inertia(rod)
     S2 = moment_inertia(plate)
     _, v1 = linalg.eigh(S1)
     _, v2 = linalg.eigh(S2)
     u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
     u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
-    return np.dot(u1,u2)**2
+    
+    if two_rods:
+        u2=v2[:,0] # eigenvector corresponds to the smallest principal moment of inerta, i.e. the axis of the second rod
+    
+    dotprod = np.dot(u1,u2)**2 # rods are symmetrical with respect to the 180º rotation 
+    
+    if asymmetric:
+        dotprod = np.dot(u1,u2) # rods are asymmetrical with respect to the 180º rotation
 
+    return dotprod
+
+'''
+class AlignTwoRods(TwoPointCV):
+    """
+    Collective Variable that calculates the alignment between two groups of particles.
+    The alignment is defined as the cos^2(theta), where theta is the angle between the axis
+    of two groups of particles. Both groups should be rod like.
+        Must be a list or tuple of atoms (ints or ranges) or groups of atoms.
+        A group is specified as a nested list or tuple of atoms.
+    group_length: int, optional
+        Specify if a fixed group length is expected.
+    """
+
+    @property
+    def function(self):
+
+        """
+        Returns
+        -------
+        Callable
+            See `pysages.colvars.pairwise.coordination` for details.
+        """
+        return align_two_rods
+
+def align_two_rods(rod1, rod2):
+    S1 = moment_inertia(rod1)
+    S2 = moment_inertia(rod2)
+    _, v1 = linalg.eigh(S1)
+    _, v2 = linalg.eigh(S2)
+    u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 1
+    u2=v2[:,0]   # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod 2
+    return np.dot(u1,u2)
+'''
 
 class RadiusOfGyration(CollectiveVariable):
     """
@@ -256,3 +314,4 @@ def radius_of_gyration(positions):
     fit_pos = np.add(positions,-pos_b)
     Rg = vmap(mono_gyration, in_axes=0)(fit_pos).sum(axis=0)
     return Rg / group_length
+
