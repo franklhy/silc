@@ -7,6 +7,7 @@ from jax.numpy import linalg
 
 from pysages.colvars.funnels import center, kabsch, periodic
 
+from silc.md.collective_variables import alignment
 
 def y_function(x, Z_0, Zcc, R):
     m = (R - Z_0) / Zcc
@@ -25,6 +26,11 @@ def cylinder(x, eje, R, k):
     x_perp = x - np.dot(x, eje) * eje
     F = linalg.norm(x_perp) - R
     return np.where(F < 0.0, 0.0, 0.5 * k * F * F)
+
+def alignforce(rod1, rod2, minvalue, maxvalue, k):
+    value = aligment(rod1, rod2, tworods)
+    F = np.where(value > maxvalue, value - maxvalue, np.where(value < minvalue, minvalue - value, 0.0))
+    return 0.5 * k * F * F
 
 
 def borderU(x, eje, k, cv_max):
@@ -91,11 +97,18 @@ def intermediate_funnel(
     cv_min,
     cv_max,
     box,
+    minalign,
+    maxalign,
+    k_algn
 ):
+
     indices_ligand = np.array(indexes[0])
     indices_protein = np.array(indexes[1])
     indices_anchor = np.array(indexes[2])
     indices_tail = np.array(indexes[3])
+    indices_ligand2 = np.array(indexes[4])
+
+    
     pos_anchor = pos[ids[indices_anchor]]
     pos_protein = pos[ids[indices_protein]]
     ligand_distances = periodic(pos[ids[indices_ligand]] - pos_anchor, np.asarray(box))
@@ -119,6 +132,9 @@ def intermediate_funnel(
             )
         )
     myfunnel = funnel(lig_rot, np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
+    
+    myfunnel += alignforce(indices_ligand,indices_ligand2, minalign, maxalign, k_algn)
+
     for i in range(len(pos_tail_array)):
         myfunnel += funnel(tail_rot[i], np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
     return myfunnel
@@ -146,6 +162,8 @@ def log_funnel(
     indices_protein = np.array(indexes[1])
     indices_anchor = np.array(indexes[2])
     indices_tail = np.array(indexes[3])
+    indices_ligand2 = np.array(indexes[4])
+
     pos_anchor = pos[ids[indices_anchor]]
     pos_protein = pos[ids[indices_protein]]
     ligand_distances = periodic(pos[ids[indices_ligand]] - pos_anchor, np.asarray(box))
@@ -179,6 +197,9 @@ def external_funnel(
     cv_min,
     cv_max,
     box,
+    minalign,
+    maxalign,
+    k_algn
 ):
     pos = data.positions[:, :3]
     ids = data.indices
@@ -199,6 +220,9 @@ def external_funnel(
         cv_min,
         cv_max,
         box,
+        minalign,
+        maxalign,
+        k_algn
     )
     proj = log_funnel(
         pos,
@@ -235,6 +259,9 @@ def get_funnel_force(
     cv_max,
     cv_buffer,
     box,
+    minalign = 0.0,
+    maxalign = 1.0,
+    k_algn = 0.
     w_ligand=None,
     w_protein=None,
 ):
@@ -255,5 +282,8 @@ def get_funnel_force(
         cv_min=cv_min - cv_buffer,
         cv_max=cv_max + cv_buffer,
         box=box,
+        minalign = minalign,
+        maxalign = maxalign,
+        k_algn = k_algn
     )
     return jit(funnel_force)
