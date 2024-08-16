@@ -28,7 +28,7 @@ def cylinder(x, eje, R, k):
     return np.where(F < 0.0, 0.0, 0.5 * k * F * F)
 
 def alignforce(rod1, rod2, minval, maxval, k):
-    val = aligment(rod1, rod2, tworods)
+    val = alignment(rod1, rod2, tworods)
     F = np.where(val > maxval, val - maxval, np.where(val < minval, minval - val, 0.0))
     return 0.5 * k * F * F
 
@@ -276,10 +276,10 @@ def get_funnel_force(
     box,
     minalign = 0.0,
     maxalign = 1.0,
-    k_algn = 0.
-    mindis = 0.4
-    maxdis = 1.
-    k_dis = 0.
+    k_algn = 0.,
+    mindis = 0.4,
+    maxdis = 1.,
+    k_dis = 0.,
     w_ligand=None,
     w_protein=None,
 ):
