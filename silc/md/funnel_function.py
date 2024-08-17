@@ -7,7 +7,7 @@ from jax.numpy import linalg
 
 from pysages.colvars.funnels import center, kabsch, periodic
 
-from silc.md.collective_variables import alignment, wrap, distance_pbc  
+from silc.md.collective_variables import Alignment, DistancePBC 
 
 def y_function(x, Z_0, Zcc, R):
     m = (R - Z_0) / Zcc
@@ -28,12 +28,12 @@ def cylinder(x, eje, R, k):
     return np.where(F < 0.0, 0.0, 0.5 * k * F * F)
 
 def alignforce(rod1, rod2, minval, maxval, k):
-    val = alignment(rod1, rod2, tworods)
+    val = Alignment([rod1, rod2], two_rods=True)
     F = np.where(val > maxval, val - maxval, np.where(val < minval, minval - val, 0.0))
     return 0.5 * k * F * F
 
 def distanceforce(r1, r2, box, minval, maxval, k):
-    val = distance_pbc(r1, r2, box)
+    val = DistancePBC([r1, r2], box)
     F = np.where(val > maxval, val - maxval, np.where(val < minval, minval - val, 0.0))
     return 0.5 * k * F * F
 
