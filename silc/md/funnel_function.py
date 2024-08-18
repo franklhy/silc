@@ -7,7 +7,7 @@ from jax.numpy import linalg
 
 from pysages.colvars.funnels import center, kabsch, periodic
 
-from silc.md.collective_variables import Alignment, DistancePBC 
+from silc.md.collective_variables import distance_pbc, alignment
 
 def y_function(x, Z_0, Zcc, R):
     m = (R - Z_0) / Zcc
@@ -28,12 +28,12 @@ def cylinder(x, eje, R, k):
     return np.where(F < 0.0, 0.0, 0.5 * k * F * F)
 
 def alignforce(rod1, rod2, minval, maxval, k):
-    val = Alignment([rod1, rod2], two_rods=True)
+    val = alignment(rod1, rod2, two_rods=True)
     F = np.where(val > maxval, val - maxval, np.where(val < minval, minval - val, 0.0))
     return 0.5 * k * F * F
 
 def distanceforce(r1, r2, box, minval, maxval, k):
-    val = DistancePBC([r1, r2], box)
+    val = distance_pbc(r1, r2, box)
     F = np.where(val > maxval, val - maxval, np.where(val < minval, minval - val, 0.0))
     return 0.5 * k * F * F
 
@@ -140,9 +140,9 @@ def intermediate_funnel(
         )
     myfunnel = funnel(lig_rot, np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
     
-    myfunnel += alignforce(indices_ligand, indices_ligand2, minalign, maxalign, k_algn)
+    myfunnel += alignforce(pos[ids[indices_ligand]], pos[ids[indices_ligand2]], minalign, maxalign, k_algn)
     
-    myfunnel += distanceforce(indices_ligand, indices_ligand2, box, mindis, maxdis, k_dis)
+    myfunnel += distanceforce(pos[ids[indices_ligand]], pos[ids[indices_ligand2]], box, mindis, maxdis, k_dis)
 
     for i in range(len(pos_tail_array)):
         myfunnel += funnel(tail_rot[i], np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
