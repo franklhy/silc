@@ -142,7 +142,7 @@ def intermediate_funnel(
     
     myfunnel += alignforce(pos[ids[indices_ligand]], pos[ids[indices_ligand2]], minalign, maxalign, k_algn)
     
-    myfunnel += distanceforce(pos[ids[indices_ligand]], pos[ids[indices_ligand2]], box, mindis, maxdis, k_dis)
+    myfunnel += distanceforce(pos[ids[indices_ligand]], pos[ids[indices_ligand2]], np.asarray(box), mindis, maxdis, k_dis)
 
     for i in range(len(pos_tail_array)):
         myfunnel += funnel(tail_rot[i], np.asarray(A), np.asarray(B), Zcc, Z_0, R, k, k_cv, cv_min, cv_max)
