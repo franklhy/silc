@@ -47,7 +47,10 @@ def generate_simulation(
     # Define the platform to use; CUDA, OpenCL, CPU, or Reference. Or do not specify
     # the platform to use the default (fastest) platform
     platform = mm.Platform.getPlatformByName(platform_name)
-    prop = dict(CudaPrecision='mixed') # Use mixed single/double precision
+    if platform_name == "CUDA":
+        prop = dict(CudaPrecision='mixed') # Use mixed single/double precision
+    else:
+        prop = None
 
     # Create the Simulation object
     sim = app.Simulation(configuration.topology, system, integrator, platform, prop)
