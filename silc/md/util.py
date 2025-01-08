@@ -16,11 +16,29 @@ import openmm.app as app
 from parmed import load_file, unit as u
 #from parmed.openmm import StateDataReporter
 
+class OverwritingDCDReporter(app.DCDReporter):
+    def __init__(self, file, reportInterval, enforcePeriodicBox=None, dumps_before_overwrite=1):
+        super().__init__(file, reportInterval, enforcePeriodicBox)
+        self.file = file
+        self.dumps_before_overwrite = dumps_before_overwrite
+        self.current_dump_count = 0
+
+    def report(self, simulation, state):
+        if self.current_dump_count % self.dumps_before_overwrite == 0:
+            # Close the existing file (if open) and start a new one to overwrite
+            self._dcd = None
+            self._out.close()
+            self._out = open(self.file, 'wb')
+
+        # Write the current frame to the file
+        super().report(simulation, state)
+        self.current_dump_count += 1
+
 
 def generate_simulation(
         input_files, output_name=None, output_path=None, T=0, 
         minimize_steps=0, NPT_steps=0, NVT_steps=0, state_freq=10000, traj_freq=100000,
-        platform_name="CUDA"):
+        platform_name="CUDA", thermostat="Langevin", debug_traj_freq=None, debug_traj_count=10):
     # Load the Amber files
     print('Loading AMBER files...')
     configuration = load_file(*input_files)
@@ -38,11 +56,20 @@ def generate_simulation(
         barostat_id = system.addForce(barostat)
 
     # Create the integrator to do Langevin dynamics
-    integrator = mm.LangevinIntegrator(
+    if thermostat == "Langevin":
+        integrator = mm.LangevinIntegrator(
                             T,       # Temperature of heat bath
                             1.0/u.picoseconds,  # Friction coefficient
                             1.0*u.femtoseconds, # Time step
-    )
+        )
+    elif thermostat == "Nose-Hoover":
+        integrator = mm.NoseHooverIntegrator(
+                            T,      # Temperature of heat bath
+                            1.0/u.picoseconds,  # collisionFrequency
+                            1.0*u.femtoseconds, # Time step
+        )
+    else:
+        raise RuntimeError("Invalid thermostat.")
 
     # Define the platform to use; CUDA, OpenCL, CPU, or Reference. Or do not specify
     # the platform to use the default (fastest) platform
@@ -82,6 +109,12 @@ def generate_simulation(
             app.DCDReporter(os.path.join(output_path, '%s.dcd' % output_name),
                             traj_freq, enforcePeriodicBox=False)
         )
+
+        if debug_traj_freq is not None and debug_traj_freq > 0:
+            sim.reporters.append(
+                OverwritingDCDReporter(os.path.join(output_path, '%s_debug.dcd' % output_name),
+                                       debug_traj_freq, enforcePeriodicBox=False, dumps_before_overwrite=debug_traj_count)
+            )
 
     # Run NPT dynamics
     if NPT_steps > 0:
