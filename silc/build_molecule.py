@@ -520,7 +520,7 @@ class complex():
         os.chdir(cwd)
 
 
-    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor_distance, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor_translation, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
@@ -566,7 +566,7 @@ class complex():
             conf.SetAtomPosition(i, pos + delta)
         ### translocate the 2nd receptor along the one axis
         ### assume the receptor is plate-like, and the axis is perpendicular to the plane of the plate, the axis is evec[:,-1] with the largest eigen value (principal moments of inertia)
-        delta = Point3D(*(evec[:,-1] * receptor_distance))
+        delta = Point3D(*(evec[:,-1] * receptor_translation[0] + evec[:,0] * receptor_translation[1] + evec[:,1] * receptor_translation[2]))
         for i in range(conf.GetNumAtoms()):
             pos = conf.GetAtomPosition(i)
             conf.SetAtomPosition(i, pos + delta)
