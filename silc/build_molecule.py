@@ -520,7 +520,7 @@ class complex():
         os.chdir(cwd)
 
 
-    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor_translation, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor1_translation=[0.,0.,0.], receptor2_translation=[0.,0.,0.], solvate=False, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
@@ -542,36 +542,51 @@ class complex():
             motifs.append(motif)
         self.dock.receptor, motifs = util.optimize_complex(self.dock.receptor, motifs, expanded_cores)
 
-        ### prepare the 2nd receptor
-        receptor2 = AllChem.Mol(self.dock.receptor)
-        conf = receptor2.GetConformer()
-        coord = []
+        ### receptor's coordinate and principle axis of inertia
+        receptor = AllChem.Mol(self.dock.receptor)
+        conf = receptor.GetConformer()
+        receptor_coord = []
         for i in range(conf.GetNumAtoms()):
             pos = conf.GetAtomPosition(i)
-            coord.append((pos.x, pos.y, pos.z))
-        coord = np.array(coord)
-        cog = np.mean(coord, axis=0)
-        coord -= cog
+            receptor_coord.append((pos.x, pos.y, pos.z))
+        receptor_coord = np.array(receptor_coord)
+        cog = np.mean(receptor_coord, axis=0)
+        receptor_coord -= cog
         ### inertia matrix
         inertia = np.zeros((3,3))
-        for i in range(len(coord)):
-            p = coord[i]
+        for i in range(len(receptor_coord)):
+            p = receptor_coord[i]
             inertia += np.dot(p,p)*np.identity(3)-np.outer(p,p)
         ### principle axis of inetria
         _, evec = np.linalg.eigh(inertia)
+
+        ### translocate the 1st receptor
+        receptor1 = AllChem.Mol(self.dock.receptor)
+        conf = receptor1.GetConformer()
+        ### assume the receptor is plate-like, and the main axis is perpendicular to the plane of the plate,
+        ### this axis is evec[:,-1] with the largest eigen value (principal moments of inertia)
+        delta = Point3D(*(evec[:,-1] * receptor1_translation[0] + evec[:,0] * receptor1_translation[1] + evec[:,1] * receptor1_translation[2]))
+        for i in range(conf.GetNumAtoms()):
+            pos = conf.GetAtomPosition(i)
+            conf.SetAtomPosition(i, pos + delta)
+
+        ### prepare the 2nd receptor
+        receptor2 = AllChem.Mol(self.dock.receptor)
+        conf = receptor2.GetConformer()
         ### inversion of the 2nd receptor w.r.t. center of gemoretry (cog)
         for i in range(conf.GetNumAtoms()):
             pos = conf.GetAtomPosition(i)
-            delta = Point3D(*(-2*coord[i]))
+            delta = Point3D(*(-2*receptor_coord[i]))
             conf.SetAtomPosition(i, pos + delta)
-        ### translocate the 2nd receptor along the one axis
-        ### assume the receptor is plate-like, and the axis is perpendicular to the plane of the plate, the axis is evec[:,-1] with the largest eigen value (principal moments of inertia)
-        delta = Point3D(*(evec[:,-1] * receptor_translation[0] + evec[:,0] * receptor_translation[1] + evec[:,1] * receptor_translation[2]))
+        ### translocate the 2nd receptor along
+        ### assume the receptor is plate-like, and the main axis is perpendicular to the plane of the plate,
+        ### this axis is evec[:,-1] with the largest eigen value (principal moments of inertia)
+        delta = Point3D(*(evec[:,-1] * receptor2_translation[0] + evec[:,0] * receptor2_translation[1] + evec[:,1] * receptor2_translation[2]))
         for i in range(conf.GetNumAtoms()):
             pos = conf.GetAtomPosition(i)
             conf.SetAtomPosition(i, pos + delta)
     
-        util.save_pdb(self.dock.receptor, "receptor0.pdb", bond=False)
+        util.save_pdb(receptor1, "receptor0.pdb", bond=False)
         util.save_pdb(receptor2, "receptor1.pdb", bond=False)
         for i in range(2):
             util.save_pdb(motifs[i], "motif%d_nobond.pdb" % i, bond=False)
