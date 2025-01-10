@@ -521,6 +521,12 @@ class complex():
 
 
     def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor1_translation=[0.,0.,0.], receptor2_translation=[0.,0.,0.], solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+        '''
+        receptor1_translation & receptor2_translation:
+            translate receptors along their three principal axes (obtained from the eigendecomposition of inertia matrix)
+            receptor1: the receptor that already bind to the ligands in dock
+            receptor2: the extra receptor that is added to the complexes
+        '''
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
