@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit.Chem import rdChemReactions
+from rdkit.Geometry import Point3D
 
 from . import util
 from .force_field import gaff2
@@ -517,6 +518,137 @@ class complex():
             raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
 
         os.chdir(cwd)
+
+
+    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor1_translation=[0.,0.,0.], receptor2_translation=[0.,0.,0.], solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+        '''
+        receptor1_translation & receptor2_translation:
+            translate receptors along their three principal axes (obtained from the eigendecomposition of inertia matrix)
+            receptor1: the receptor that already bind to the ligands in dock
+            receptor2: the extra receptor that is added to the complexes
+        '''
+        cwd = os.getcwd()
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
+        os.chdir(self.work_path)
+
+        ligands = self.dock.ligand_mol(n_ligand=2, pose_id=dock_pose_id)
+        core = AllChem.MolFromSmiles(util.replace_dummy(self.binding_molecule.core_smiles, new=["[H]", "[H]"], replace_mass_label=True))
+        motifs = []
+        expanded_cores = []
+        for i in range(2):
+            expanded_corei = util.expand_substructure(ligands[i], core, expand_iteration=1)
+            expanded_cores.append(expanded_corei)
+            motif_template = AllChem.MolFromSmiles(self.binding_molecule.motif_smiles)
+            motif_template = AllChem.AddHs(motif_template)
+            motif = AllChem.MolFromPDBFile(self.binding_molecule.motif_pdb, removeHs=False)
+            motif = AllChem.Mol(motif)
+            motif = AllChem.AssignBondOrdersFromTemplate(motif_template, motif)
+            motif = util.align_to_substructure(motif, expanded_corei, stretch=True)
+            motifs.append(motif)
+        self.dock.receptor, motifs = util.optimize_complex(self.dock.receptor, motifs, expanded_cores)
+
+        ### receptor's coordinate and principle axis of inertia
+        receptor = AllChem.Mol(self.dock.receptor)
+        conf = receptor.GetConformer()
+        receptor_coord = []
+        for i in range(conf.GetNumAtoms()):
+            pos = conf.GetAtomPosition(i)
+            receptor_coord.append((pos.x, pos.y, pos.z))
+        receptor_coord = np.array(receptor_coord)
+        cog = np.mean(receptor_coord, axis=0)
+        receptor_coord -= cog
+        ### inertia matrix
+        inertia = np.zeros((3,3))
+        for i in range(len(receptor_coord)):
+            p = receptor_coord[i]
+            inertia += np.dot(p,p)*np.identity(3)-np.outer(p,p)
+        ### principle axis of inetria
+        _, evec = np.linalg.eigh(inertia)
+
+        ### translocate the 1st receptor
+        receptor1 = AllChem.Mol(self.dock.receptor)
+        conf = receptor1.GetConformer()
+        ### assume the receptor is plate-like, and the main axis is perpendicular to the plane of the plate,
+        ### this axis is evec[:,-1] with the largest eigen value (principal moments of inertia)
+        delta = Point3D(*(evec[:,-1] * receptor1_translation[0] + evec[:,0] * receptor1_translation[1] + evec[:,1] * receptor1_translation[2]))
+        for i in range(conf.GetNumAtoms()):
+            pos = conf.GetAtomPosition(i)
+            conf.SetAtomPosition(i, pos + delta)
+
+        ### prepare the 2nd receptor
+        receptor2 = AllChem.Mol(self.dock.receptor)
+        conf = receptor2.GetConformer()
+        ### inversion of the 2nd receptor w.r.t. center of gemoretry (cog)
+        for i in range(conf.GetNumAtoms()):
+            pos = conf.GetAtomPosition(i)
+            delta = Point3D(*(-2*receptor_coord[i]))
+            conf.SetAtomPosition(i, pos + delta)
+        ### translocate the 2nd receptor along
+        ### assume the receptor is plate-like, and the main axis is perpendicular to the plane of the plate,
+        ### this axis is evec[:,-1] with the largest eigen value (principal moments of inertia)
+        delta = Point3D(*(evec[:,-1] * receptor2_translation[0] + evec[:,0] * receptor2_translation[1] + evec[:,1] * receptor2_translation[2]))
+        for i in range(conf.GetNumAtoms()):
+            pos = conf.GetAtomPosition(i)
+            conf.SetAtomPosition(i, pos + delta)
+    
+        util.save_pdb(receptor1, "receptor0.pdb", bond=False)
+        util.save_pdb(receptor2, "receptor1.pdb", bond=False)
+        for i in range(2):
+            util.save_pdb(motifs[i], "motif%d_nobond.pdb" % i, bond=False)
+            self.binding_molecule.write_binding_motif_charge_file("motif%d_charge.txt" % i)
+            fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.binding_molecule.motif_smiles))    # formal charge
+            #subprocess.run(["antechamber", "-i", "motif%d_nobond.pdb" % i, "-fi", "pdb", "-o", "motif%d.mol2" % i, "-fo", "mol2", "-nc", "%d" % fc, "-c", "rc", "-cf", "motif%d_charge.txt" % i, "-at", "gaff2", "-s", "%d" % self.antechamber_status, "-pf", self.raif])
+            #subprocess.run(["parmchk2", "-i", "motif%d.mol2" % i, "-f", "mol2", "-o", "motif%d.frcmod" % i, "-s", "gaff2"])
+
+        with open("tleap_motif_complex.in", "w") as f:
+            f.write("source leaprc.gaff2\n")
+            f.write("logfile leap_motif_complex.log\n")
+            f.write("source %s\n\n" % files('silc.data.receptor.q4md-CD').joinpath('script1.ff'))
+            f.write("loadamberparams %s/motif.frcmod\n\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/core/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/core/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/tail/molecule_head.prepi\n" % self.binding_molecule.work_path)
+            f.write("loadamberprep %s/tail/molecule_tail.prepi\n" % self.binding_molecule.work_path)
+            for i in range(2):
+                f.write("motif%d = sequence {TLA CRA TLB}\n" % i)
+                f.write("motif%d = loadpdb motif%d_nobond.pdb\n" % (i, i))
+            f.write("\n")
+            for i in range(2):
+                f.write("receptor%d = loadPDB receptor%d.pdb\n" % (i, i))
+                f.write("bond receptor%d.1.C4 receptor%d.8.O1\n\n" % (i, i))
+
+            f.write("complex = combine {receptor0 receptor1 motif0 motif1}\n")
+            f.write("charge complex\n")
+            f.write("check complex\n\n")
+
+            f.write("saveamberparm complex motif_complex.prmtop motif_complex.rst7\n")
+            f.write("savemol2 complex motif_complex_Tripos.mol2 0\n")
+            f.write("savemol2 complex motif_complex.mol2 1\n")
+            f.write("savepdb complex motif_complex.pdb\n\n")
+
+            if solvate:
+                f.write("loadoff solvents.lib\n")
+                f.write("solvateBox complex TIP3PBOX 14.0 iso\n")
+                if fc > 0:
+                    f.write("source leaprc.water.tip3p\n")
+                    f.write("addIons2 complex %s 0\n" % counter_anion)
+                elif fc < 0:
+                    f.write("source leaprc.water.tip3p\n")
+                    f.write("addIons2 complex %s 0\n" % counter_cation)
+                f.write("saveamberparm complex motif_complex_solv.prmtop motif_complex_solv.rst7\n")
+                f.write("savepdb complex motif_complex_solv.pdb\n\n")
+
+            f.write("quit\n")
+        result = subprocess.run(["tleap", "-I", "%s" % files('silc.data.receptor').joinpath('q4md-CD'), "-f", "tleap_motif_complex.in"])
+        if result.returncode != 0:
+            raise RuntimeError("tleap run error.")
+        leap_status = util.check_leap_log("leap_motif_complex.log")
+        if leap_status[0] != 0:
+            raise RuntimeError("tleap run error. Total number of errors = %d" % leap_status[0])
+
+        os.chdir(cwd)
+
 
     def create_receptor_ditopic_complex(self, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()

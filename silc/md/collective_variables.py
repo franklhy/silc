@@ -223,17 +223,20 @@ def moment_inertia(positions):
     I=vmap(mono_inertia, in_axes=0)(fit_pos).sum(axis=0)
     return I
 
-def alignment(rod, plate, two_rods: bool = False, asymmetric: bool = False):
+def alignment(rod, plate, two_rods: bool = False, two_plates: bool = False, asymmetric: bool = False):
     S1 = moment_inertia(rod)
     S2 = moment_inertia(plate)
     _, v1 = linalg.eigh(S1)
     _, v2 = linalg.eigh(S2)
-    u1=v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
-    u2=v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
+    u1 = v1[:,0]    # eigenvector corresponds to the smallest principal moment of inertia, i.e. the axis of rod
+    u2 = v2[:,-1]   # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of plate
     
     if two_rods:
-        u2=v2[:,0] # eigenvector corresponds to the smallest principal moment of inerta, i.e. the axis of the second rod
+        u2 = v2[:,0] # eigenvector corresponds to the smallest principal moment of inerta, i.e. the axis of the second rod
     
+    if two_plates:
+        u1 = v1[:,-1] # eigenvector corresponds to the largest principal moment of inertia, i.e. the axis of the first plate
+
     dotprod = np.dot(u1,u2)**2 # rods are symmetrical with respect to the 180º rotation 
     
     if asymmetric:
