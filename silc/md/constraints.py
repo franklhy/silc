@@ -11,8 +11,8 @@ from pysages.colvars.funnels import center, kabsch, periodic
 from pysages.colvars.orientation import rmsd, RMSD
 from pysages.colvars.orientation import kabsch as rmsd_kabsch
 
-from silc.md.collective_variables import distance_pbc, alignment
-from silc.md.util import generate_simulation
+from .collective_variables import distance_pbc, alignment
+from .util import generate_simulation
 
 
 @dataclass

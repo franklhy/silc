@@ -6,8 +6,9 @@ from jax import grad, jit
 from jax.numpy import linalg
 
 from pysages.colvars.funnels import center, kabsch, periodic
-from silc.md.constraints import Alignment_Constraint, Distance_Constraint, Recenter_Constraint, RMSD_Constraint, Funnel_Constraint
-from silc.md.constraints import alignment_force, distance_force, recenter_force, rmsd_force, funnel_force
+
+from .constraints import Alignment_Constraint, Distance_Constraint, Recenter_Constraint, RMSD_Constraint, Funnel_Constraint
+from .constraints import alignment_force, distance_force, recenter_force, rmsd_force, funnel_force
 
 
 def intermediate_funnel(
