@@ -300,7 +300,7 @@ class residue:
 
     def set_dummy_replacement(self, dummy_replacement):
         if self.smiles_with_dummy is None:
-            raise RuntimeError("Please set dummy replacement first using set_dummy_replacement().")
+            raise RuntimeError("Please set smiles first using set_smiles().")
         if isinstance(dummy_replacement, list) and len(dummy_replacement) == self.num_dummy:
             for dummy in dummy_replacement:
                 if len(dummy) == 1 or dummy == "[NH3+]":
@@ -424,10 +424,16 @@ class residue:
                 neigh_atom = mol.GetAtomWithIdx(neighbor_idx)
                 if neigh_atom.GetAtomicNum() == 1:
                     remove.append(neigh_atom.GetMonomerInfo().GetName().strip())
-                elif neigh_atom.GetAtomicNum() in [6,7,8]:
+                elif neigh_atom.GetAtomicNum() in [6,7,8]:    # maybe can set to > 1, not sure though...
                     head.append(neigh_atom.GetMonomerInfo().GetName().strip())
+                else:
+                    raise RuntimeError("HEAD/TAIL atom currently only accept C, N, O.")
 
         fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.smiles))    # formal charge
+        remove_fc = 0
+        for i in range(len(self.replace_dummy_with)):
+            if replace_dummy_with[i] == "[NH3+]":
+                remove_fc += 1
 
         # prepare mainchain file
         if len(head) == 2:
@@ -437,14 +443,14 @@ class residue:
                 f.write("TAIL_NAME %s\n" % head[1])
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
-                f.write("CHARGE %g\n" % fc)
+                f.write("CHARGE %g\n" % (fc - remove_fc))
             # tail residue (reverse the head and tail atoms)
             with open("mainchain_tail.mc", "w") as f:
                 f.write("HEAD_NAME %s\n" % head[1])
                 f.write("TAIL_NAME %s\n" % head[0])
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
-                f.write("CHARGE %g\n" % fc)
+                f.write("CHARGE %g\n" % (fc - remove_fc))
         elif len(head) == 1:
             # with only one dummy atom, we need to find another chain end
             chain_end_atom_idx = []
@@ -470,14 +476,14 @@ class residue:
                 f.write("TAIL_NAME %s\n" % head[0])
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
-                f.write("CHARGE %g\n" % fc)
+                f.write("CHARGE %g\n" % (fc - remove_fc))
             # tail capping residue
             with open("mainchain_tail.mc", "w") as f:
                 f.write("HEAD_NAME %s\n" % head[0])
                 f.write("TAIL_NAME %s\n" % end)
                 for i in range(len(remove)):
                     f.write("OMIT_NAME %s\n" % remove[i])
-                f.write("CHARGE %g\n" % fc)
+                f.write("CHARGE %g\n" % (fc - remove_fc))
         else:
             raise RuntimeError("cannot create a residue for the molecule given its SMILES: %s" % self.smiles_with_dummy)
 
