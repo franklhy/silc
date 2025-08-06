@@ -432,7 +432,7 @@ class residue:
         fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.smiles))    # formal charge
         remove_fc = 0
         for i in range(len(self.replace_dummy_with)):
-            if replace_dummy_with[i] == "[NH3+]":
+            if self.replace_dummy_with[i] == "[NH3+]":
                 remove_fc += 1
 
         # prepare mainchain file
