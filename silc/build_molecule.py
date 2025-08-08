@@ -105,7 +105,7 @@ class binding_molecule:
             shutil.rmtree(self.work_path)
 
 
-    def create_ditopic_molecule(self, solvate=False, counter_anion="Cl-", counter_cation="Na+", nmol=1, translate=[0.0, 0.0, 0.0]):
+    def create_ditopic_molecule(self, solvate=False, solvate_distance=14.0, counter_anion="Cl-", counter_cation="Na+", nmol=1, translate=[0.0, 0.0, 0.0]):
         '''
         Create a ditopic molecule with the following structure: tail-core-bridge-core-tail
 
@@ -188,7 +188,7 @@ class binding_molecule:
             f.write("saveamberparm mol_comb ditopic%s.prmtop ditopic%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateBox mol_comb TIP3PBOX 14.0 iso\n")
+                f.write("solvateBox mol_comb TIP3PBOX %f iso\n" % solvate_distance)
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.ditopic_smiles))    # formal charge
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
@@ -214,7 +214,7 @@ class binding_molecule:
         os.chdir(cwd)
 
 
-    def create_binding_motif(self, solvate=False, counter_anion="Cl-", counter_cation="Na+", nmol=1, translate=[0.0, 0.0, 0.0]):
+    def create_binding_motif(self, solvate=False, solvate_distance=14.0, counter_anion="Cl-", counter_cation="Na+", nmol=1, translate=[0.0, 0.0, 0.0]):
         '''
         Create a binding motif with the following structure: tail-core-tail
 
@@ -291,7 +291,7 @@ class binding_molecule:
             f.write("saveamberparm mol_comb motif%s.prmtop motif%s.rst7\n" % (appendix, appendix))
             if solvate:
                 f.write("source leaprc.water.tip3p\n")
-                f.write("solvateBox mol_comb TIP3PBOX 14.0 iso\n")
+                f.write("solvateBox mol_comb TIP3PBOX %f iso\n" % solvate_distance)
                 fc = AllChem.GetFormalCharge(AllChem.MolFromSmiles(self.motif_smiles))    # formal charge
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
@@ -438,7 +438,7 @@ class complex():
             shutil.rmtree(self.work_path)
 
 
-    def create_receptor_motif_complex(self, n_motif, dock_pose_id, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+    def create_receptor_motif_complex(self, n_motif, dock_pose_id, solvate=False, solvate_distance=14.0, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
@@ -499,7 +499,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateBox complex TIP3PBOX 14.0 iso\n")
+                f.write("solvateBox complex TIP3PBOX %f iso\n" % solvate_distance)
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
@@ -520,7 +520,7 @@ class complex():
         os.chdir(cwd)
 
 
-    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor1_translation=[0.,0.,0.], receptor2_translation=[0.,0.,0.], solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+    def create_receptor_motif_2to2_complex(self, dock_pose_id, receptor1_translation=[0.,0.,0.], receptor2_translation=[0.,0.,0.], solvate=False, solvate_distance=14.0, counter_anion="Cl-", counter_cation="Na+"):
         '''
         receptor1_translation & receptor2_translation:
             translate receptors along their three principal axes (obtained from the eigendecomposition of inertia matrix)
@@ -629,7 +629,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateBox complex TIP3PBOX 14.0 iso\n")
+                f.write("solvateBox complex TIP3PBOX %f iso\n" % solvate_distance)
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
@@ -650,7 +650,7 @@ class complex():
         os.chdir(cwd)
 
 
-    def create_receptor_ditopic_complex(self, solvate=False, counter_anion="Cl-", counter_cation="Na+"):
+    def create_receptor_ditopic_complex(self, solvate=False, solvate_distance=14.0, counter_anion="Cl-", counter_cation="Na+"):
         cwd = os.getcwd()
         if not os.path.exists(self.work_path):
             os.makedirs(self.work_path)
@@ -715,7 +715,7 @@ class complex():
 
             if solvate:
                 f.write("loadoff solvents.lib\n")
-                f.write("solvateBox complex TIP3PBOX 14.0 iso\n")
+                f.write("solvateBox complex TIP3PBOX %f iso\n" % solvate_distance)
                 if fc > 0:
                     f.write("source leaprc.water.tip3p\n")
                     f.write("addIons2 complex %s 0\n" % counter_anion)
