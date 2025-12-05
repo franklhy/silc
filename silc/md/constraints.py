@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Any
 
 import jax.numpy as np
 from jax import grad, jit
@@ -235,7 +235,7 @@ class FunnelConstraint:
         ref_pos = state.getPositions(asNumpy=True)
         self.references = np.asarray(ref_pos.value_in_unit(u.nanometer)[self.host_reference_atoms])
 
-        if each_atom:
+        if self.each_atom:
             self.val = None
             self.energy = None
 
@@ -254,7 +254,7 @@ def cone(proj, perp, height, R_bottom, R_top, k):
 
 
 def cylinder(perp, R, k):
-    F = x - R
+    F = perp - R
     return np.where(F < 0.0, 0.0, 0.5 * k * F * F)
 
 
