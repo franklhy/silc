@@ -145,14 +145,15 @@ class charge:
         for key in self.charge.keys():
             self.charge_avgstd[key] = [np.mean(self.charge[key]), np.std(self.charge[key])]
             charge_sum += self.charge_avgstd[key][0]
+        extra_charge = charge_sum - self.formal_charge
         for key in self.charge.keys():
-            self.charge_avgstd[key][0] -= charge_sum / len(self.charge_avgstd)
+            self.charge_avgstd[key][0] -= extra_charge / len(self.charge_avgstd)
 
 
     def symmetrize_charge(self):
         '''
         Check and make sure that partial charges on equivalent atoms are the same
-        Note: the '-eq' option of antechamber should have already handeled it.
+        Note: the '-eq' option of antechamber should have already handled it.
         '''
         sym_chg = {}
         new_sym_chg = {}
